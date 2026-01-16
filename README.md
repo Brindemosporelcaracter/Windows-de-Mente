@@ -1,9 +1,12 @@
-# -Windows-de-Mente
-Optimización inteligente de Windows - Enfoque transparente y educativo
 # Windows de Mente 🧠
 
 ## Yo también pasé por esa puerta...  
 **solo para entendidos.**
+
+![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-blue)
+![Windows](https://img.shields.io/badge/Windows-10%2F11-success)
+![License](https://img.shields.io/badge/License-MIT-green)
+![GitHub](https://img.shields.io/badge/GitHub-Open_Source-lightgrey)
 
 ### 📖 ¿Qué es esto?
 Un script de PowerShell que optimiza Windows de forma **inteligente y transparente**, analizando tu hardware específico y aplicando ajustes reales (no placebos).
@@ -30,8 +33,10 @@ Un script de PowerShell que optimiza Windows de forma **inteligente y transparen
 
 ### 🔧 Cómo usar
 ```powershell
-# 1. Guarda el script como WindowsDeMente.ps1
-# 2. Ejecuta PowerShell como Administrador
-# 3. Ejecuta: .\WindowsDeMente.ps1
-# 4. Lee cada explicación mientras se ejecuta
-# 5. Reinicia para completar los cambios
+# 1. Ejecuta PowerShell como Administrador
+# 2. Copia y pega TODO el script de WindowsDeMente.ps1
+# 3. Lee cada explicación mientras se ejecuta
+# 4. Reinicia para completar los cambios
+
+# O descarga y ejecuta:
+# .\WindowsDeMente.ps1
