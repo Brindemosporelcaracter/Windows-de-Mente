@@ -1,34 +1,18 @@
-# ==========================================================
-# WINDOWS DE MENTE – SYSTEM ALIGNMENT SCRIPT
-# Compatible: Windows 10 / 11
-# Ejecutar: copiar y pegar completo en PowerShell (Admin)
-# ==========================================================
-
 Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║   WINDOWS DE MENTE – ALINEACIÓN DEL SISTEMA         ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "=== Windows de Mente ===" -ForegroundColor Cyan
+Write-Host "Guidance, not force | Optimización consciente" -ForegroundColor DarkGray
 Write-Host ""
 
 # ==========================================================
-# BASELINE – ESTADO REAL DEL SISTEMA (ANTES)
+# BASELINE – ESTADO REAL DEL SISTEMA
 # ==========================================================
 
-Write-Host "🔍 ANALIZANDO TU SISTEMA..." -ForegroundColor Yellow
-Write-Host ""
+$CS   = Get-CimInstance Win32_ComputerSystem
+$OS   = Get-CimInstance Win32_OperatingSystem
 
-$OS        = Get-CimInstance Win32_OperatingSystem
-$BootDT   = $OS.LastBootUpTime
-$Uptime   = (Get-Date) - $BootDT
-$UptimeMin = [math]::Round($Uptime.TotalMinutes, 1)
-
-$RAMGB    = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)
-$AutoPF   = (Get-CimInstance Win32_ComputerSystem).AutomaticManagedPagefile
-$PF       = Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue
-
-$StartupDelay = (Get-ItemProperty `
- "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" `
- -Name StartupDelayInMSec -ErrorAction SilentlyContinue).StartupDelayInMSec
+$RAMGB = [math]::Round($CS.TotalPhysicalMemory / 1GB)
+$AutoPF = $CS.AutomaticManagedPagefile
+$PFUsage = Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue
 
 try {
     $DiskType = (Get-PhysicalDisk | Select-Object -First 1).MediaType
@@ -37,10 +21,12 @@ try {
 }
 
 $CompactQuery = (compact.exe /compactOS:query) 2>$null
-$CompactEnabled = $false
-if ($CompactQuery -match "estado compacto") { $CompactEnabled = $true }
+$CompactEnabled = ($CompactQuery -match "estado compacto")
 
-# Perfil por RAM
+$StartupDelay = (Get-ItemProperty `
+ "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" `
+ -Name StartupDelayInMSec -ErrorAction SilentlyContinue).StartupDelayInMSec
+
 $Profile = "LOW"
 if ($RAMGB -gt 4) { $Profile = "MID" }
 if ($RAMGB -gt 8) { $Profile = "HIGH" }
@@ -49,25 +35,23 @@ if ($RAMGB -gt 8) { $Profile = "HIGH" }
 # SNAPSHOT ANTES
 # ==========================================================
 
-Write-Host "📊 [ESTADO ACTUAL DEL SISTEMA]" -ForegroundColor Yellow
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-Write-Host "• RAM instalada:        $RAMGB GB" -ForegroundColor Gray
-Write-Host "• Perfil estimado:      $Profile" -ForegroundColor Gray
-Write-Host "• Disco principal:      $DiskType" -ForegroundColor Gray
-Write-Host "• Pagefile automático:  $AutoPF" -ForegroundColor Gray
-if ($PF) { Write-Host "• Pagefile actual:     $($PF.AllocatedBaseSize) MB" -ForegroundColor Gray }
-Write-Host "• Startup delay:        $StartupDelay ms" -ForegroundColor Gray
-Write-Host "• CompactOS activo:     $CompactEnabled" -ForegroundColor Gray
-Write-Host "• Tiempo desde arranque:$UptimeMin minutos" -ForegroundColor Gray
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+Write-Host "[Estado detectado]" -ForegroundColor Yellow
+Write-Host "RAM instalada: $RAMGB GB"
+Write-Host "Perfil estimado: $Profile"
+Write-Host "Disco principal: $DiskType"
+Write-Host "Pagefile automático: $AutoPF"
+if ($PFUsage) {
+    Write-Host "Pagefile actual: $($PFUsage.AllocatedBaseSize) MB"
+}
+Write-Host "Startup delay: $StartupDelay ms"
+Write-Host "CompactOS activo: $CompactEnabled"
 Write-Host ""
 
 # ==========================================================
-# FASE 1 – MEMORIA (CORRECCIÓN REAL)
+# FASE 1 – MEMORIA
 # ==========================================================
 
-Write-Host "🚀 [FASE 1/6] OPTIMIZANDO MEMORIA DEL SISTEMA" -ForegroundColor Cyan
-Write-Host "└────────────────────────────────────────────"
+Write-Host "[1] Memoria del sistema" -ForegroundColor Cyan
 
 $MM = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
 $BadTweaks = @(
@@ -81,17 +65,18 @@ foreach ($t in $BadTweaks) {
     Remove-ItemProperty -Path $MM -Name $t -ErrorAction SilentlyContinue
 }
 
-Write-Host "   🔄 Antes: Políticas de memoria forzadas o heredadas" -ForegroundColor DarkGray
-Write-Host "   ✅ Ahora: Políticas restauradas a valores oficiales de Microsoft" -ForegroundColor Green
-Write-Host "   💡 Beneficio: Menos uso de disco como RAM cuando se satura la memoria física" -ForegroundColor Blue
+Write-Host "Antes:"
+Write-Host "• Windows podía usar reglas de memoria forzadas o antiguas"
+Write-Host "• Eso suele causar pausas y uso excesivo de disco (swap)"
+Write-Host "Ahora:"
+Write-Host "• Memoria alineada a políticas soportadas por Microsoft"
 Write-Host ""
 
 # ==========================================================
 # FASE 2 – CPU / SCHEDULER
 # ==========================================================
 
-Write-Host "⚡ [FASE 2/6] AJUSTANDO PRIORIDADES DE CPU" -ForegroundColor Cyan
-Write-Host "└─────────────────────────────────────────"
+Write-Host "[2] CPU y prioridad de tareas" -ForegroundColor Cyan
 
 Set-ItemProperty `
  "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" `
@@ -101,37 +86,37 @@ Set-ItemProperty `
  "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
  SystemResponsiveness 10
 
-Write-Host "   🔄 Antes: Tiempo de CPU repartido de forma genérica" -ForegroundColor DarkGray
-Write-Host "   ✅ Ahora: Prioridad real para aplicaciones en primer plano" -ForegroundColor Green
-Write-Host "   💡 Beneficio: Menos micro-pausas al interactuar con el sistema" -ForegroundColor Blue
+Write-Host "Antes:"
+Write-Host "• CPU repartida de forma pareja entre todo"
+Write-Host "Ahora:"
+Write-Host "• Aplicaciones activas responden antes bajo carga"
 Write-Host ""
 
 # ==========================================================
 # FASE 3 – INICIO DE SESIÓN
 # ==========================================================
 
-Write-Host "🚪 [FASE 3/6] ACELERANDO INICIO DE SESIÓN" -ForegroundColor Cyan
-Write-Host "└────────────────────────────────────────"
+Write-Host "[3] Inicio del sistema" -ForegroundColor Cyan
 
 $Explorer = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize"
 New-Item -Path $Explorer -Force | Out-Null
 Set-ItemProperty -Path $Explorer -Name StartupDelayInMSec -Type DWord -Value 0
 
-Write-Host "   🔄 Antes: Inicio visual rápido, pero sistema cargando en segundo plano" -ForegroundColor DarkGray
-Write-Host "   ✅ Ahora: Espera artificial eliminada (0 ms)" -ForegroundColor Green
-Write-Host "   💡 Beneficio: Escritorio usable inmediatamente al iniciar sesión" -ForegroundColor Blue
+Write-Host "Antes:"
+Write-Host "• Escritorio visible, pero sistema aún ocupado"
+Write-Host "Ahora:"
+Write-Host "• Apps listas sin espera artificial"
 Write-Host ""
 
 # ==========================================================
-# FASE 4 – MEMORIA VIRTUAL
+# FASE 4 – MEMORIA VIRTUAL (PAGEFILE)
 # ==========================================================
 
-Write-Host "💾 [FASE 4/6] CONFIGURANDO MEMORIA VIRTUAL" -ForegroundColor Cyan
-Write-Host "└─────────────────────────────────────────"
+Write-Host "[4] Memoria virtual" -ForegroundColor Cyan
 
 $min = 1024; $max = 2048
-if ($Profile -eq "MID") { $min = 2048; $max = 4096 }
-if ($Profile -eq "LOW") { $min = 4096; $max = 8192 }
+if ($Profile -eq "MID") { $min=2048; $max=4096 }
+if ($Profile -eq "LOW") { $min=4096; $max=8192 }
 
 if ($AutoPF) {
     Set-CimInstance `
@@ -142,31 +127,33 @@ if ($AutoPF) {
      Remove-CimInstance -ErrorAction SilentlyContinue
 
     New-CimInstance -ClassName Win32_PageFileSetting -Property @{
-        Name = "C:\pagefile.sys"
-        InitialSize = [uint32]$min
-        MaximumSize = [uint32]$max
+        Name="C:\pagefile.sys"
+        InitialSize=[uint32]$min
+        MaximumSize=[uint32]$max
     } | Out-Null
 }
 
-Write-Host "   🔄 Antes: Pagefile de tamaño dinámico sin considerar hardware específico" -ForegroundColor DarkGray
-Write-Host "   ✅ Ahora: Pagefile fijado en $min – $max MB (según perfil: $Profile)" -ForegroundColor Green
-Write-Host "   💡 Beneficio: Menos redimensionamientos y mejor gestión de memoria" -ForegroundColor Blue
+Write-Host "Antes:"
+Write-Host "• Tamaño de pagefile decidido sin conocer tu RAM"
+Write-Host "Ahora:"
+Write-Host "• Pagefile fijado en $min–$max MB según tu hardware"
 Write-Host ""
 
 # ==========================================================
 # FASE 5 – ALMACENAMIENTO
 # ==========================================================
 
-Write-Host "💿 [FASE 5/6] OPTIMIZANDO ALMACENAMIENTO" -ForegroundColor Cyan
-Write-Host "└───────────────────────────────────────"
+Write-Host "[5] Almacenamiento" -ForegroundColor Cyan
 
 if ($DiskType -eq "HDD") {
     fsutil behavior set disablelastaccess 1 | Out-Null
-    Write-Host "   🔄 Antes: Cada acceso a archivo generaba escrituras NTFS extra en HDD" -ForegroundColor DarkGray
-    Write-Host "   ✅ Ahora: 'Last access time' desactivado para HDDs" -ForegroundColor Green
-    Write-Host "   💡 Beneficio: Menos trabajo mecánico, mayor fluidez y vida útil del disco" -ForegroundColor Blue
+
+    Write-Host "Antes:"
+    Write-Host "• Cada lectura generaba escrituras extra en el disco"
+    Write-Host "Ahora:"
+    Write-Host "• Menos trabajo mecánico → respuesta más fluida"
 } else {
-    Write-Host "   📝 SSD detectado → No se aplicaron cambios agresivos" -ForegroundColor Yellow
+    Write-Host "SSD detectado → no se aplicaron cambios agresivos"
 }
 Write-Host ""
 
@@ -174,89 +161,32 @@ Write-Host ""
 # FASE 6 – COMPACT OS
 # ==========================================================
 
-Write-Host "📦 [FASE 6/6] COMPACTANDO SISTEMA OPERATIVO" -ForegroundColor Cyan
-Write-Host "└──────────────────────────────────────────"
+Write-Host "[6] Huella del sistema" -ForegroundColor Cyan
 
 if ($Profile -ne "HIGH" -and -not $CompactEnabled) {
     compact.exe /compactOS:always | Out-Null
-    Write-Host "   🔄 Antes: Archivos del sistema sin compresión" -ForegroundColor DarkGray
-    Write-Host "   ✅ Ahora: CompactOS activado con compresión inteligente" -ForegroundColor Green
-    Write-Host "   💡 Beneficio: ≈ 1–2 GB más de espacio libre sin afectar rendimiento" -ForegroundColor Blue
+
+    Write-Host "Antes:"
+    Write-Host "• Sistema sin compresión"
+    Write-Host "Ahora:"
+    Write-Host "• Huella reducida (~1–2 GB menos en disco)"
 } else {
-    Write-Host "   📝 CompactOS no necesario (suficiente RAM o ya activado)" -ForegroundColor Yellow
+    Write-Host "CompactOS evaluado → no necesario"
 }
 Write-Host ""
 
 # ==========================================================
-# RESUMEN FINAL – TÉCNICO
+# RESUMEN FINAL – POR FASE
 # ==========================================================
 
-Write-Host "📋 RESUMEN TÉCNICO DE CAMBIOS APLICADOS" -ForegroundColor Cyan
-Write-Host "══════════════════════════════════════════════════════"
-Write-Host "• ESPECIFICACIONES DETECTADAS:" -ForegroundColor White
-Write-Host "  └ RAM: $RAMGB GB | Perfil: $Profile | Disco: $DiskType" -ForegroundColor Gray
-Write-Host ""
-Write-Host "• CAMBIOS REALIZADOS:" -ForegroundColor White
-Write-Host "  ├ Fase 1: Políticas de memoria optimizadas" -ForegroundColor Gray
-Write-Host "  ├ Fase 2: Prioridad CPU para aplicaciones en primer plano" -ForegroundColor Gray
-Write-Host "  ├ Fase 3: Retardo de inicio eliminado (0 ms)" -ForegroundColor Gray
-Write-Host "  ├ Fase 4: Pagefile fijado a $min – $max MB" -ForegroundColor Gray
-if ($DiskType -eq "HDD") {
-    Write-Host "  ├ Fase 5: Optimizaciones para disco mecánico (HDD)" -ForegroundColor Gray
-} else {
-    Write-Host "  ├ Fase 5: Sin cambios para SSD" -ForegroundColor Gray
-}
-if ($Profile -ne "HIGH" -and -not $CompactEnabled) {
-    Write-Host "  └ Fase 6: CompactOS activado" -ForegroundColor Gray
-} else {
-    Write-Host "  └ Fase 6: CompactOS no aplicado" -ForegroundColor Gray
-}
-Write-Host "══════════════════════════════════════════════════════"
+Write-Host "=== RESUMEN DE CAMBIOS ===" -ForegroundColor Cyan
+Write-Host "[Memoria]  → menos uso de disco cuando falta RAM"
+Write-Host "[CPU]      → apps activas responden antes"
+Write-Host "[Inicio]   → escritorio listo sin demoras falsas"
+Write-Host "[Pagefile] → memoria virtual alineada a tu equipo"
+Write-Host "[Disco]    → menos trabajo innecesario"
+Write-Host "[Sistema]  → optimizado solo donde tenía sentido"
 Write-Host ""
 
-# ==========================================================
-# RESUMEN FINAL – HUMANO
-# ==========================================================
-
-Write-Host "🎯 ¿QUÉ NOTARÁS EN TU DÍA A DÍA?" -ForegroundColor Green
-Write-Host "══════════════════════════════════════════════════════"
-Write-Host ""
-Write-Host "⏱️  MENOS TIEMPOS DE ESPERA" -ForegroundColor White
-Write-Host "   • Escritorio listo inmediatamente al iniciar sesión" -ForegroundColor Gray
-Write-Host "   • Programas que se abren más rápido" -ForegroundColor Gray
-Write-Host ""
-Write-Host "⚡ RESPUESTA MÁS INMEDIATA" -ForegroundColor White
-Write-Host "   • Ventanas que responden mejor al cambiar entre ellas" -ForegroundColor Gray
-Write-Host "   • Menos 'congelamientos' al hacer clic" -ForegroundColor Gray
-Write-Host ""
-Write-Host "💾 RECURSOS MEJOR DISTRIBUIDOS" -ForegroundColor White
-Write-Host "   • Windows usa menos el disco como RAM" -ForegroundColor Gray
-Write-Host "   • Memoria virtual ajustada a tu equipo específico" -ForegroundColor Gray
-if ($DiskType -eq "HDD") {
-    Write-Host "   • Disco duro mecánico trabajando de forma más eficiente" -ForegroundColor Gray
-}
-if ($Profile -ne "HIGH" -and -not $CompactEnabled) {
-    Write-Host "   • Más espacio disponible en tu disco principal" -ForegroundColor Gray
-}
-Write-Host ""
-Write-Host "🛠️  SISTEMA PERSONALIZADO" -ForegroundColor White
-Write-Host "   • Configuraciones basadas en tu hardware real" -ForegroundColor Gray
-Write-Host "   • Ajustes específicos, no genéricos" -ForegroundColor Gray
-Write-Host "══════════════════════════════════════════════════════"
-Write-Host ""
-
-# ==========================================================
-# CONCLUSIÓN
-# ==========================================================
-
-Write-Host "✅ PROCESO COMPLETADO" -ForegroundColor Green
-Write-Host ""
-Write-Host "✨ Tu sistema ahora es parte de un Windows de Mente." -ForegroundColor Magenta
-Write-Host ""
-Write-Host "🔄 REINICIO RECOMENDADO:" -ForegroundColor Yellow
-Write-Host "   Para consolidar todos los cambios, reinicia tu equipo cuando sea conveniente." -ForegroundColor Gray
-Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║         ¡SISTEMA OPTIMIZADO CON ÉXITO!              ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-Write-Host ""
+Write-Host "Tu sistema ahora es parte de un Windows de Mente." -ForegroundColor Green
+Write-Host "Reinicio recomendado para consolidar los cambios."
