@@ -1,42 +1,75 @@
-# Windows de Mente 🧠
+# Windows de Mente
 
-## Yo también pasé por esa puerta...  
-**solo para entendidos.**
+**Guidance, not force.**  
+Optimización consciente para Windows 10 y 11.
 
-![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-blue)
-![Windows](https://img.shields.io/badge/Windows-10%2F11-success)
-![License](https://img.shields.io/badge/License-MIT-green)
-![GitHub](https://img.shields.io/badge/GitHub-Open_Source-lightgrey)
+---
 
-### 📖 ¿Qué es esto?
-Un script de PowerShell que optimiza Windows de forma **inteligente y transparente**, analizando tu hardware específico y aplicando ajustes reales (no placebos).
+## 🧠 ¿Qué es Windows de Mente?
 
-### 🎯 Filosofía diferente
-- **No es otro "tweak pack" más** - Solo ajustes necesarios
-- **Análisis antes de actuar** - Lee TU hardware primero
-- **Educación sobre magia** - Explica cada cambio
-- **Estabilidad sobre extremos** - Nada que rompa tu sistema
+Windows de Mente no es un “tweaker mágico”.
 
-### 🚀 ¿Qué hace realmente?
-1. **Analiza** tu RAM, disco, configuración actual
-2. **Ajusta** memoria virtual según tu hardware real
-3. **Optimiza** prioridades de CPU para aplicaciones activas
-4. **Elimina** retrasos artificiales al iniciar sesión
-5. **Explica** cada paso en español claro
+No promete más FPS.
+No desactiva servicios al azar.
+No fuerza configuraciones extremas.
 
-### ⚠️ Lo que NO hace
-- ❌ Desactivar servicios esenciales
-- ❌ Eliminar características de seguridad  
-- ❌ Prometer milagros de rendimiento
-- ❌ Modificar componentes críticos
-- ❌ Pedir dinero ni suscripciones
+👉 Su objetivo es simple:
+**ayudar a Windows a tomar mejores decisiones según TU hardware real.**
 
-### 🔧 Cómo usar
-```powershell
-# 1. Ejecuta PowerShell como Administrador
-# 2. Copia y pega TODO el script de WindowsDeMente.ps1
-# 3. Lee cada explicación mientras se ejecuta
-# 4. Reinicia para completar los cambios
+---
 
-# O descarga y ejecuta:
-# .\WindowsDeMente.ps1
+## 🔍 ¿Qué hace el script?
+
+Antes de optimizar, **audita** el sistema:
+
+- Detecta políticas de memoria forzadas o heredadas
+- Revisa el uso de memoria virtual (pagefile)
+- Analiza el tipo de disco (HDD / SSD)
+- Evalúa si CompactOS tiene sentido
+- Identifica retrasos artificiales de inicio
+
+Luego, **corrige solo lo necesario**, sin romper el sistema.
+
+---
+
+## 🧩 Cambios aplicados (si corresponde)
+
+- ✔ Normalización de memoria (sin tweaks dañinos)
+- ✔ Prioridad de CPU enfocada en tareas activas
+- ✔ Eliminación de retrasos falsos al iniciar sesión
+- ✔ Pagefile ajustado según RAM instalada
+- ✔ Menos escrituras innecesarias en HDD
+- ✔ CompactOS evaluado de forma inteligente
+
+Cada cambio está explicado **antes y después** en la consola.
+
+---
+
+## 👤 ¿Para quién es?
+
+- Equipos de **bajo, medio y alto hardware**
+- Usuarios que quieren estabilidad
+- Técnicos y docentes
+- Personas cansadas de tweaks que “rompen todo”
+
+---
+
+## ▶ Cómo usar
+
+1. Abrí PowerShell **como Administrador**
+2. Copiá **todo el script**
+3. Pegalo en la consola y presioná Enter
+4. Esperá a que finalice
+5. Reiniciá el sistema
+
+> ⚠ No ejecutar línea por línea
+
+---
+
+## 🧭 Filosofía
+
+> “Windows no es lento.  
+> A veces solo está mal aconsejado.”
+
+**Windows de Mente**  
+Porque optimizar no es forzar.
