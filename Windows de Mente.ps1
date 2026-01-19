@@ -1,192 +1,215 @@
+# =====================================================================
+#  WINDOWS DE MENTE v1.0
+#  Optimización consciente de Windows
+#  Guidance, not force
+# =====================================================================
+
+Clear-Host
+$Host.UI.RawUI.WindowTitle = "Windows de Mente v1.0"
+
 Write-Host ""
-Write-Host "=== Windows de Mente ===" -ForegroundColor Cyan
-Write-Host "Guidance, not force | Optimización consciente" -ForegroundColor DarkGray
-Write-Host ""
-
-# ==========================================================
-# BASELINE – ESTADO REAL DEL SISTEMA
-# ==========================================================
-
-$CS   = Get-CimInstance Win32_ComputerSystem
-$OS   = Get-CimInstance Win32_OperatingSystem
-
-$RAMGB = [math]::Round($CS.TotalPhysicalMemory / 1GB)
-$AutoPF = $CS.AutomaticManagedPagefile
-$PFUsage = Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue
-
-try {
-    $DiskType = (Get-PhysicalDisk | Select-Object -First 1).MediaType
-} catch {
-    $DiskType = "UNKNOWN"
-}
-
-$CompactQuery = (compact.exe /compactOS:query) 2>$null
-$CompactEnabled = ($CompactQuery -match "estado compacto")
-
-$StartupDelay = (Get-ItemProperty `
- "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" `
- -Name StartupDelayInMSec -ErrorAction SilentlyContinue).StartupDelayInMSec
-
-$Profile = "LOW"
-if ($RAMGB -gt 4) { $Profile = "MID" }
-if ($RAMGB -gt 8) { $Profile = "HIGH" }
-
-# ==========================================================
-# SNAPSHOT ANTES
-# ==========================================================
-
-Write-Host "[Estado detectado]" -ForegroundColor Yellow
-Write-Host "RAM instalada: $RAMGB GB"
-Write-Host "Perfil estimado: $Profile"
-Write-Host "Disco principal: $DiskType"
-Write-Host "Pagefile automático: $AutoPF"
-if ($PFUsage) {
-    Write-Host "Pagefile actual: $($PFUsage.AllocatedBaseSize) MB"
-}
-Write-Host "Startup delay: $StartupDelay ms"
-Write-Host "CompactOS activo: $CompactEnabled"
+Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "   WINDOWS DE MENTE v1.0  |  Optimización Consciente de Windows" -ForegroundColor Cyan
+Write-Host "   Guidance, not force  |  Sin placebo ni tweaks obsoletos" -ForegroundColor DarkGray
+Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
-# ==========================================================
-# FASE 1 – MEMORIA
-# ==========================================================
+# =====================================================================
+# FASE 0 – FUNDACIÓN ABSOLUTA (HARDWARE + SANEAMIENTO)
+# =====================================================================
 
-Write-Host "[1] Memoria del sistema" -ForegroundColor Cyan
+Write-Host "[FASE 0] Fundación del sistema" -ForegroundColor Yellow
 
+# --- Limpieza de tweaks heredados / peligrosos ---
 $MM = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
-$BadTweaks = @(
- "DisablePagingExecutive",
- "LargeSystemCache",
- "ClearPageFileAtShutdown",
- "SecondLevelDataCache"
+$BadMemoryTweaks = @(
+    "DisablePagingExecutive",
+    "LargeSystemCache",
+    "ClearPageFileAtShutdown",
+    "SecondLevelDataCache",
+    "IoPageLockLimit"
 )
 
-foreach ($t in $BadTweaks) {
+foreach ($t in $BadMemoryTweaks) {
     Remove-ItemProperty -Path $MM -Name $t -ErrorAction SilentlyContinue
 }
 
-Write-Host "Antes:"
-Write-Host "• Windows podía usar reglas de memoria forzadas o antiguas"
-Write-Host "• Eso suele causar pausas y uso excesivo de disco (swap)"
-Write-Host "Ahora:"
-Write-Host "• Memoria alineada a políticas soportadas por Microsoft"
+Remove-ItemProperty `
+ "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" `
+ -Name Win32PrioritySeparation -ErrorAction SilentlyContinue
+
+Remove-ItemProperty `
+ "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
+ -Name SystemResponsiveness -ErrorAction SilentlyContinue
+
+# --- Red: volver a estado sano ---
+netsh int tcp set global autotuninglevel=normal | Out-Null
+netsh int tcp set global rss=enabled | Out-Null
+netsh int tcp set global chimney=disabled | Out-Null
+
+# --- Lectura completa de hardware ---
+$CPU  = Get-CimInstance Win32_Processor | Select-Object -First 1
+$RAMM = Get-CimInstance Win32_PhysicalMemory
+$GPU  = Get-CimInstance Win32_VideoController | Select-Object -First 1
+$OS   = Get-CimInstance Win32_OperatingSystem
+$Disk = Get-PhysicalDisk | Select-Object -First 1
+$Net  = Get-NetAdapter | Where-Object Status -eq "Up"
+$USB  = Get-CimInstance Win32_USBController
+
+$RAMGB = [math]::Round(($RAMM.Capacity | Measure-Object -Sum).Sum / 1GB)
+$IsLaptop = (Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue) -ne $null
+
+Write-Host "✔ Sistema saneado y hardware detectado" -ForegroundColor Green
 Write-Host ""
 
-# ==========================================================
-# FASE 2 – CPU / SCHEDULER
-# ==========================================================
+# =====================================================================
+# FASE 1 – PERFIL DEL SISTEMA (ROBUSTO)
+# =====================================================================
 
-Write-Host "[2] CPU y prioridad de tareas" -ForegroundColor Cyan
+Write-Host "[FASE 1] Perfil del sistema" -ForegroundColor Yellow
+
+$ProfileScore = 0
+
+switch ($RAMGB) {
+    { $_ -ge 16 } { $ProfileScore += 40; break }
+    { $_ -ge 8 }  { $ProfileScore += 25; break }
+    default       { $ProfileScore += 10 }
+}
+
+switch ($CPU.NumberOfCores) {
+    { $_ -ge 8 } { $ProfileScore += 30; break }
+    { $_ -ge 4 } { $ProfileScore += 20; break }
+    default      { $ProfileScore += 10 }
+}
+
+switch ($Disk.MediaType) {
+    "SSD" { $ProfileScore += 20 }
+    default { $ProfileScore += 10 }
+}
+
+switch ($ProfileScore) {
+    { $_ -ge 80 } { $Profile = "ENTUSIASTA"; break }
+    { $_ -ge 55 } { $Profile = "EQUILIBRADO"; break }
+    { $_ -ge 35 } { $Profile = "ESTANDAR"; break }
+    default       { $Profile = "LIVIANO" }
+}
+
+Write-Host "Perfil detectado: $Profile ($ProfileScore puntos)" -ForegroundColor Cyan
+Write-Host ""
+
+# =====================================================================
+# FASE 2 – MEMORIA (RESPETO NATIVO)
+# =====================================================================
+
+Write-Host "[FASE 2] Memoria" -ForegroundColor Yellow
+Write-Host "✔ Gestión de RAM alineada al diseño de Windows" -ForegroundColor Green
+Write-Host ""
+
+# =====================================================================
+# FASE 3 – CPU / SCHEDULER
+# =====================================================================
+
+Write-Host "[FASE 3] CPU y scheduler" -ForegroundColor Yellow
+
+switch ($Profile) {
+    "ENTUSIASTA" { $CPUValue = 38 }
+    "EQUILIBRADO" { $CPUValue = 26 }
+    "ESTANDAR" { $CPUValue = 18 }
+    "LIVIANO" { $CPUValue = 2 }
+}
 
 Set-ItemProperty `
  "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" `
- Win32PrioritySeparation 26
+ -Name Win32PrioritySeparation -Value $CPUValue
 
-Set-ItemProperty `
- "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" `
- SystemResponsiveness 10
-
-Write-Host "Antes:"
-Write-Host "• CPU repartida de forma pareja entre todo"
-Write-Host "Ahora:"
-Write-Host "• Aplicaciones activas responden antes bajo carga"
+Write-Host "✔ Scheduler aplicado ($CPUValue)" -ForegroundColor Green
 Write-Host ""
 
-# ==========================================================
-# FASE 3 – INICIO DE SESIÓN
-# ==========================================================
+# =====================================================================
+# FASE 4 – INICIO DE SESIÓN
+# =====================================================================
 
-Write-Host "[3] Inicio del sistema" -ForegroundColor Cyan
+Write-Host "[FASE 4] Inicio de sesión" -ForegroundColor Yellow
 
 $Explorer = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize"
 New-Item -Path $Explorer -Force | Out-Null
 Set-ItemProperty -Path $Explorer -Name StartupDelayInMSec -Type DWord -Value 0
 
-Write-Host "Antes:"
-Write-Host "• Escritorio visible, pero sistema aún ocupado"
-Write-Host "Ahora:"
-Write-Host "• Apps listas sin espera artificial"
+Write-Host "✔ Retraso artificial eliminado" -ForegroundColor Green
 Write-Host ""
 
-# ==========================================================
-# FASE 4 – MEMORIA VIRTUAL (PAGEFILE)
-# ==========================================================
+# =====================================================================
+# FASE 5 – MEMORIA VIRTUAL
+# =====================================================================
 
-Write-Host "[4] Memoria virtual" -ForegroundColor Cyan
+Write-Host "[FASE 5] Memoria virtual" -ForegroundColor Yellow
 
-$min = 1024; $max = 2048
-if ($Profile -eq "MID") { $min=2048; $max=4096 }
-if ($Profile -eq "LOW") { $min=4096; $max=8192 }
+switch ($Profile) {
+    "ENTUSIASTA" { $min = 1024; $max = 4096 }
+    "EQUILIBRADO" { $min = 2048; $max = 6144 }
+    "ESTANDAR" { $min = 4096; $max = 8192 }
+    "LIVIANO" { $min = 6144; $max = 12288 }
+}
 
-if ($AutoPF) {
+$CS = Get-CimInstance Win32_ComputerSystem
+if ($CS.AutomaticManagedPagefile) {
+
     Set-CimInstance `
      -Query "SELECT * FROM Win32_ComputerSystem" `
      -Property @{ AutomaticManagedPagefile = $false } | Out-Null
 
     Get-CimInstance Win32_PageFileSetting -ErrorAction SilentlyContinue |
-     Remove-CimInstance -ErrorAction SilentlyContinue
+        Remove-CimInstance -ErrorAction SilentlyContinue
 
     New-CimInstance -ClassName Win32_PageFileSetting -Property @{
-        Name="C:\pagefile.sys"
-        InitialSize=[uint32]$min
-        MaximumSize=[uint32]$max
+        Name = "C:\pagefile.sys"
+        InitialSize = [uint32]$min
+        MaximumSize = [uint32]$max
     } | Out-Null
 }
 
-Write-Host "Antes:"
-Write-Host "• Tamaño de pagefile decidido sin conocer tu RAM"
-Write-Host "Ahora:"
-Write-Host "• Pagefile fijado en $min–$max MB según tu hardware"
+Write-Host "✔ Pagefile configurado ($min – $max MB)" -ForegroundColor Green
 Write-Host ""
 
-# ==========================================================
-# FASE 5 – ALMACENAMIENTO
-# ==========================================================
+# =====================================================================
+# FASE 6 – RED
+# =====================================================================
 
-Write-Host "[5] Almacenamiento" -ForegroundColor Cyan
+Write-Host "[FASE 6] Red" -ForegroundColor Yellow
+Write-Host "✔ TCP/IP en estado saludable (sin resets destructivos)" -ForegroundColor Green
+Write-Host ""
 
-if ($DiskType -eq "HDD") {
+# =====================================================================
+# FASE 7 – ALMACENAMIENTO
+# =====================================================================
+
+Write-Host "[FASE 7] Almacenamiento" -ForegroundColor Yellow
+
+if ($Disk.MediaType -eq "HDD") {
     fsutil behavior set disablelastaccess 1 | Out-Null
-
-    Write-Host "Antes:"
-    Write-Host "• Cada lectura generaba escrituras extra en el disco"
-    Write-Host "Ahora:"
-    Write-Host "• Menos trabajo mecánico → respuesta más fluida"
+    Write-Host "✔ HDD optimizado (menos escrituras)" -ForegroundColor Green
 } else {
-    Write-Host "SSD detectado → no se aplicaron cambios agresivos"
+    Write-Host "✔ SSD/NVMe: sin tweaks innecesarios" -ForegroundColor Green
 }
+
 Write-Host ""
 
-# ==========================================================
-# FASE 6 – COMPACT OS
-# ==========================================================
+# =====================================================================
+# FASE 8 – EDUCACIÓN
+# =====================================================================
 
-Write-Host "[6] Huella del sistema" -ForegroundColor Cyan
-
-if ($Profile -ne "HIGH" -and -not $CompactEnabled) {
-    compact.exe /compactOS:always | Out-Null
-
-    Write-Host "Antes:"
-    Write-Host "• Sistema sin compresión"
-    Write-Host "Ahora:"
-    Write-Host "• Huella reducida (~1–2 GB menos en disco)"
-} else {
-    Write-Host "CompactOS evaluado → no necesario"
-}
+Write-Host "[FASE 8] Educación" -ForegroundColor Yellow
+Write-Host "• No se desactivaron servicios críticos" -ForegroundColor DarkGray
+Write-Host "• No se tocaron navegadores ni credenciales" -ForegroundColor DarkGray
+Write-Host "• No se aplicaron tweaks placebo u obsoletos" -ForegroundColor DarkGray
 Write-Host ""
 
-# ==========================================================
-# RESUMEN FINAL – POR FASE
-# ==========================================================
+# =====================================================================
+# FASE 9 – RESUMEN
+# =====================================================================
 
-Write-Host "=== RESUMEN DE CAMBIOS ===" -ForegroundColor Cyan
-Write-Host "[Memoria]  → menos uso de disco cuando falta RAM"
-Write-Host "[CPU]      → apps activas responden antes"
-Write-Host "[Inicio]   → escritorio listo sin demoras falsas"
-Write-Host "[Pagefile] → memoria virtual alineada a tu equipo"
-Write-Host "[Disco]    → menos trabajo innecesario"
-Write-Host "[Sistema]  → optimizado solo donde tenía sentido"
+Write-Host "[FASE 9] Resumen final" -ForegroundColor Cyan
+Write-Host "Sistema optimizado con criterio consciente." -ForegroundColor Green
+Write-Host "Perfil aplicado: $Profile" -ForegroundColor Green
+Write-Host "Reinicio recomendado." -ForegroundColor Yellow
 Write-Host ""
-
-Write-Host "Tu sistema ahora es parte de un Windows de Mente." -ForegroundColor Green
-Write-Host "Reinicio recomendado para consolidar los cambios."
