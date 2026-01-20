@@ -109,26 +109,6 @@ Cada fase explica:
 
 ### **FASE 9** - Verificación y finalización  
 *"Ciclo completo, resultados verificables"*
-
-graph TD
-    A[Inicio: Windows de Mente] --> B{¿Es Admin?}
-    B -- No --> C[Error: Solicitar Permisos]
-    B -- Si --> D[FASE 0: Analisis de Hardware]
-    D --> E[FASE 1: Perfil de Sistema]
-    E --> F[FASE 2: Limpieza de Tweaks]
-    F --> G[FASE 3: Prioridades CPU]
-    G --> H[FASE 4: Optimizacion Retrasos]
-    H --> I[FASE 5: Memoria Virtual]
-    I --> J{Tipo de Disco}
-    J -- SSD/NVMe --> K[TRIM y Buffers Max]
-    J -- HDD --> L[Prefetch y Latencia]
-    K --> M[FASE 6: Red y DNS]
-    L --> M
-    M --> N[FASE 8: Mantenimiento]
-    N --> O[FASE 9: Finalizacion]
-    O --> P{¿Reiniciar?}
-    P -- Si --> Q[Reiniciar PC]
-    P -- No --> R[Fin]
     
 ## ⚠️ **Seguridad: Lo que NUNCA debes hacer**
 
