@@ -111,29 +111,24 @@ Cada fase explica:
 *"Ciclo completo, resultados verificables"*
 
 graph TD
-    A[Inicio: Windows de Mente v1.0] --> B{¿Es Admin?}
+    A[Inicio: Windows de Mente] --> B{¿Es Admin?}
     B -- No --> C[Error: Solicitar Permisos]
-    B -- Sí --> D[FASE 0: Análisis de Hardware]
-    D --> E[FASE 1: Evaluación de Perfil]
-    
-    E --> F[FASE 2: Limpieza de Tweaks Obsoletos]
-    F --> G[FASE 3: Balance de Prioridades CPU]
-    G --> H[FASE 4: Optimización de Retrasos]
-    H --> I[FASE 5: Verificación Memoria Virtual]
-    
+    B -- Si --> D[FASE 0: Analisis de Hardware]
+    D --> E[FASE 1: Perfil de Sistema]
+    E --> F[FASE 2: Limpieza de Tweaks]
+    F --> G[FASE 3: Prioridades CPU]
+    G --> H[FASE 4: Optimizacion Retrasos]
+    H --> I[FASE 5: Memoria Virtual]
     I --> J{Tipo de Disco}
-    J -- NVMe/SSD --> K[Optimizar TRIM y Buffers]
-    J -- HDD --> L[Optimizar Prefetch y Seek]
-    
-    K --> M[FASE 6: Configuración de Red]
+    J -- SSD/NVMe --> K[TRIM y Buffers Max]
+    J -- HDD --> L[Prefetch y Latencia]
+    K --> M[FASE 6: Red y DNS]
     L --> M
-    
-    M --> N[FASE 8: Resumen y Mantenimiento]
-    N --> O[FASE 9: Finalización]
+    M --> N[FASE 8: Mantenimiento]
+    N --> O[FASE 9: Finalizacion]
     O --> P{¿Reiniciar?}
-    P -- Sí --> Q[Reiniciar PC]
-    P -- No --> R[Fin del Script]
-
+    P -- Si --> Q[Reiniciar PC]
+    P -- No --> R[Fin]
 ## ⚠️ **Seguridad: Lo que NUNCA debes hacer**
 
 ```powershell
