@@ -129,6 +129,7 @@ graph TD
     O --> P{¿Reiniciar?}
     P -- Si --> Q[Reiniciar PC]
     P -- No --> R[Fin]
+    
 ## ⚠️ **Seguridad: Lo que NUNCA debes hacer**
 
 ```powershell
