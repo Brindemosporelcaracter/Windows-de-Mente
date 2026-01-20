@@ -110,6 +110,30 @@ Cada fase explica:
 ### **FASE 9** - Verificación y finalización  
 *"Ciclo completo, resultados verificables"*
 
+graph TD
+    A[Inicio: Windows de Mente v1.0] --> B{¿Es Admin?}
+    B -- No --> C[Error: Solicitar Permisos]
+    B -- Sí --> D[FASE 0: Análisis de Hardware]
+    D --> E[FASE 1: Evaluación de Perfil]
+    
+    E --> F[FASE 2: Limpieza de Tweaks Obsoletos]
+    F --> G[FASE 3: Balance de Prioridades CPU]
+    G --> H[FASE 4: Optimización de Retrasos]
+    H --> I[FASE 5: Verificación Memoria Virtual]
+    
+    I --> J{Tipo de Disco}
+    J -- NVMe/SSD --> K[Optimizar TRIM y Buffers]
+    J -- HDD --> L[Optimizar Prefetch y Seek]
+    
+    K --> M[FASE 6: Configuración de Red]
+    L --> M
+    
+    M --> N[FASE 8: Resumen y Mantenimiento]
+    N --> O[FASE 9: Finalización]
+    O --> P{¿Reiniciar?}
+    P -- Sí --> Q[Reiniciar PC]
+    P -- No --> R[Fin del Script]
+
 ## ⚠️ **Seguridad: Lo que NUNCA debes hacer**
 
 ```powershell
