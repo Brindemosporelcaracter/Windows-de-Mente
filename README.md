@@ -1,6 +1,17 @@
 # 🧠 Windows de Mente v1.1
 ### Optimización Consciente Contextual para Windows
 
+> ⚠️ **IMPORTANTE – ESTADO DE VERSIONES**
+>
+> El **Release actual** puede no reflejar la última versión del código.
+>
+> - 🔒 **Releases**: versiones estables y congeladas
+> - 🔄 **Branch main**: desarrollo activo y mejoras continuas
+>
+> 👉 Si querés **la versión más reciente**, descargá el archivo `.ps1`
+> desde el repositorio (no desde Releases).
+
+
 **Guidance, not force.**  
 Windows ya está optimizado por diseño.  
 Este proyecto **no fuerza configuraciones**, elimina interferencias peligrosas  
