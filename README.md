@@ -1,4 +1,4 @@
-# 🧠 Windows de Mente v1.1
+# 🧠 Windows de Mente v1.0
 ### Optimización Consciente Contextual para Windows
 
 > ⚠️ **IMPORTANTE – ESTADO DE VERSIONES**
