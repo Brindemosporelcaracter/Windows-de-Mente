@@ -1,4 +1,3 @@
-Tienes razón en ambos puntos. ¡Vamos a corregirlo!
 
 # 🧠 Windows de Mente v1.0
 
