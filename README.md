@@ -74,13 +74,7 @@ cd C:\Users\TuUsuario\Downloads
 8. **Optimización de almacenamiento** - Configuraciones por tipo de disco
 9. **Benchmark y reporte** - Mediciones reales y documentación completa
 
----
-# 🧠 Windows de Mente v1.0
-🎯 Filosofía: "Guidance, not force"
 
-[... TODO TU CONTENIDO ACTUAL ...]
-
----
 
 ## 🚀 **RESUMEN DE FUNCIONALIDADES - VERSIÓN ACTUAL**
 
