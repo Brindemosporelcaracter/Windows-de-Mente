@@ -75,6 +75,95 @@ cd C:\Users\TuUsuario\Downloads
 9. **Benchmark y reporte** - Mediciones reales y documentación completa
 
 ---
+# 🧠 Windows de Mente v1.0
+🎯 Filosofía: "Guidance, not force"
+
+[... TODO TU CONTENIDO ACTUAL ...]
+
+---
+
+## 🚀 **RESUMEN DE FUNCIONALIDADES - VERSIÓN ACTUAL**
+
+### 🔍 **DETECCIÓN INTELIGENTE DE HARDWARE**
+- **CPU**: Clasificación por núcleos/hilos (2c/4t, 4c/8t, etc.)
+- **RAM**: Detección exacta de memoria disponible y uso
+- **ALMACENAMIENTO**: Identificación HDD/SSD/NVMe con optimizaciones específicas
+- **GPU**: Detección integrada vs dedicada (NVIDIA/AMD/Intel)
+- **RED**: Identificación de chipset (Realtek, Intel, Killer) y tipo (Ethernet/Wi-Fi)
+
+### ⚙️ **OPTIMIZACIONES APLICABLES**
+- **Power Plan Contextual**: Equilibrado/Alto rendimiento según hardware
+- **Prioridad CPU**: Valores optimizados (ej: 24 para sistemas equilibrados)
+- **Network Tweaks**: Optimizaciones específicas por fabricante de red
+- **Retrasos Explorer**: Configurado según tipo de disco (200ms HDD, 0ms SSD)
+- **Hotfixes Comunes**: Soluciones para problemas conocidos de Windows
+- **Eliminación de Tweaks Peligrosos**: Remoción de configuraciones inestables
+
+### 📊 **BENCHMARK REAL Y MEDICIÓN**
+- **Responsividad CPU**: Medición en milisegundos (pre/post)
+- **Puntuación Contextual**: 0-100 basado en categoría de hardware
+- **Categorías Hardware**: Liviano/Estándar/Equilibrado/Entusiasta
+- **Porcentaje de Potencial**: "95% del óptimo para tu hardware"
+
+### 🛡️ **SEGURIDAD Y ESTABILIDAD**
+- **0 Tweaks Peligrosos**: Solo ajustes seguros y probados
+- **Backup Automático**: Respaldos antes de cambios críticos
+- **Log Detallado**: Registro completo de todas las acciones
+- **Sin Modificaciones Críticas**: No se tocan servicios esenciales
+
+### 📋 **PERFILES Y ESTRATEGIAS**
+- **Hardware Tier**: Detección automática (Liviano a Entusiasta)
+- **Risk Strategy**: Aggressive/Conservative según configuración
+- **Risk Level**: Evaluación de riesgos (Low/Medium/High)
+- **Power Plan**: Recomendación según capacidades de refrigeración
+
+### 📁 **SALIDA Y REPORTES**
+- **Reporte en Desktop**: `WindowsDeMente_Resultados_AAAAMMDD_HHMMSS.txt`
+- **Contenido del Log**:
+  - Benchmark comparativo
+  - Hardware detectado
+  - Optimizaciones aplicadas
+  - Recomendaciones personalizadas
+  - Estado del sistema
+
+### 🔧 **MODOS DE EJECUCIÓN**
+- **Interactivo Normal**: Con confirmaciones y explicaciones
+- **Modo Seguro (-SafeMode)**: Solo análisis, sin cambios
+- **Log Detallado (-LogLevel Verbose)**: Información extendida
+- **Ejecución Directa**: Copiar/pegar desde PowerShell Admin
+
+### 🎯 **ESCENARIOS ESPECÍFICOS CUBIERTOS**
+- **HDD Antiguos**: Optimización de delays y caché
+- **Poca RAM (<8GB)**: Gestión mejorada de memoria
+- **GPUs Dedicadas**: Planes de energía optimizados
+- **Chipsets de Red Específicos**: Tweaks para Realtek, Intel, etc.
+- **CPUs de Pocos Núcleos**: Balance de prioridades mejorado
+
+### ⚠️ **PROTECCIONES INTEGRADAS**
+- **Validación Previa**: Chequeo de requisitos antes de ejecutar
+- **Manejo de Errores**: Try/catch en todas las operaciones críticas
+- **Restauración Posible**: Backups para revertir si es necesario
+- **Sin Dependencias**: No requiere ejecuciones periódicas
+
+### 📈 **RESULTADOS ESPERADOS**
+- **Mejora Real**: 1-5% en responsividad (no promesas exageradas)
+- **Estabilidad Mejorada**: Menos crashes y congelaciones
+- **Fluidez Incrementada**: Respuesta más rápida en tareas cotidianas
+- **Transparencia Total**: Sabes exactamente qué cambió y por qué
+
+---
+
+## ⚡ **¿QUÉ HACE ESTA VERSIÓN EN CONCRETO?**
+
+1. **ANALIZA** tu hardware real (no asume nada)
+2. **CLASIFICA** en categoría apropiada (no compara incomparables)
+3. **ELIMINA** solo lo peligroso (tweaks inestables)
+4. **OPTIMIZA** según tu configuración exacta
+5. **MIDO** mejoras reales (benchmark objetivo)
+6. **EDUCO** con resultados honestos (no porcentajes inventados)
+7. **DOCUMENTO** todo (transparencia completa)
+
+**Ejemplo de salida real:**
 
 ## 🎨 Diferencias Fundamentales
 
