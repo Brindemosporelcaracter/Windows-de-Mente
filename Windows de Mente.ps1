@@ -1,14 +1,14 @@
 # =====================================================================
-#  WINDOWS DE MENTE v1.0
+#  WINDOWS DE MENTE v1.0 - OPTIMIZACIÓN INTELIGENTE
 #  Optimización consciente de Windows
-#  Guidance, not force
+#  Guidance, not force - Detección específica por hardware
 # =====================================================================
 
 Clear-Host
-$Host.UI.RawUI.WindowTitle = "Windows de Mente v1.0"
+$Host.UI.RawUI.WindowTitle = "Windows de Mente v1.0 - Optimización Inteligente"
 
 # =====================================================================
-# CONFIGURACIÓN GLOBAL MEJORADA
+# CONFIGURACIÓN GLOBAL
 # =====================================================================
 $GlobalConfig = @{
     SafeMode = $false
@@ -20,347 +20,708 @@ $GlobalConfig = @{
 }
 
 # =====================================================================
-# BENCHMARK INICIAL MEJORADO (PROXY-AWARE)
+# INICIALIZAR VARIABLES GLOBALES
 # =====================================================================
-if ($GlobalConfig.EnableBenchmark) {
-    Write-Host "📊 BENCHMARK INICIAL (pre-optimización)" -ForegroundColor Cyan
-    Write-Host "──────────────────────────────────────────────────────" -ForegroundColor DarkGray
+$SystemProfile = @{}
+$OptimizationPlan = @()
+$selectedOptimizations = @()
+$HardwareProfile = "ESTÁNDAR"
+$totalRAM = 0
+$systemDiskType = "Unknown"
+
+# =====================================================================
+# FUNCIONES DE DETECCIÓN INTELIGENTE
+# =====================================================================
+
+function Get-CPUInfoDetallada {
+    $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
     
-    $baseline = @{}
+    if (-not $cpu) {
+        return @{
+            Modelo = "No detectado"
+            Generation = "Desconocida"
+            Cores = 0
+            Threads = 0
+            BaseClock = 0
+            L2Cache = "N/A"
+            L3Cache = "N/A"
+            Socket = "Unknown"
+            Stepping = "Unknown"
+            Revision = "Unknown"
+            Family = 0
+            HasTurbo = $false
+            IsHybrid = $false
+            Architecture = "Unknown"
+        }
+    }
+    
+    $details = @{
+        Modelo = $cpu.Name.Trim()
+        Cores = if ($cpu.NumberOfCores) { $cpu.NumberOfCores } else { 0 }
+        Threads = if ($cpu.NumberOfLogicalProcessors) { $cpu.NumberOfLogicalProcessors } else { 0 }
+        BaseClock = if ($cpu.MaxClockSpeed) { [math]::Round($cpu.MaxClockSpeed) } else { 0 }
+        L2Cache = if ($cpu.L2CacheSize) { "$([math]::Round($cpu.L2CacheSize/1024, 1)) MB" } else { "N/A" }
+        L3Cache = if ($cpu.L3CacheSize) { "$([math]::Round($cpu.L3CacheSize/1024, 1)) MB" } else { "N/A" }
+        Socket = if ($cpu.SocketDesignation) { $cpu.SocketDesignation } else { "Unknown" }
+        Stepping = if ($cpu.Stepping) { $cpu.Stepping } else { "Unknown" }
+        Revision = if ($cpu.Revision) { $cpu.Revision } else { "Unknown" }
+        Family = if ($cpu.Family) { $cpu.Family } else { 0 }
+        HasTurbo = $false
+        IsHybrid = $false
+        Architecture = "Unknown"
+        Generation = "Desconocida"
+    }
+    
+    if ($cpu.Name -match "i[3579]-(\d{4})") {
+        $modelNum = $Matches[1]
+        switch -regex ($modelNum) {
+            "^1[01]" { $details.Generation = "1ra Generación" }
+            "^2[01]" { $details.Generation = "2da Generación" }
+            "^3[01]" { $details.Generation = "3ra Generación" }
+            "^4[01]" { $details.Generation = "4ta Generación" }
+            "^5[01]" { $details.Generation = "5ta Generación" }
+            "^6[01]" { $details.Generation = "6ta Generación" }
+            "^7[01]" { $details.Generation = "7ma Generación" }
+            "^8[01]" { $details.Generation = "8va Generación" }
+            "^9[01]" { $details.Generation = "9na Generación" }
+            "^10[01]" { $details.Generation = "10ma Generación" }
+            "^11[01]" { $details.Generation = "11va Generación" }
+            "^12[01]" { $details.Generation = "12va Generación" }
+            "^13[01]" { $details.Generation = "13va Generación" }
+            "^14[01]" { $details.Generation = "14va Generación" }
+            default { $details.Generation = "Intel" }
+        }
+    }
+    elseif ($cpu.Name -match "Ryzen") {
+        if ($cpu.Name -match "Ryzen (\d)") {
+            $gen = $Matches[1]
+            $details.Generation = "AMD Ryzen $genxxx Series"
+        }
+        if ($cpu.Name -match "(\d{4})") {
+            $modelNum = $Matches[1]
+            $firstDigit = $modelNum[0]
+            $details.Generation = "AMD Ryzen ${firstDigit}xxx Series"
+        }
+    }
+    
+    if ($cpu.Name -match "(Core|Pentium|Celeron|Atom)") {
+        if ($cpu.Family -eq 6) {
+            $details.Architecture = "Intel x86"
+        }
+    }
+    
+    if ($cpu.Name -match "Turbo|Boost|K$|X$|KS$") {
+        $details.HasTurbo = $true
+    }
+    
+    if ($cpu.Name -match "Alder Lake|Raptor Lake|Meteor Lake|Core Ultra") {
+        $details.IsHybrid = $true
+    }
+    
+    return $details
+}
+
+function Get-RAMInfoDetallada {
+    $totalRAM = 0
+    $modules = @()
     
     try {
-        Write-Host "  » Midiendo responsividad CPU..." -ForegroundColor DarkGray
-        $cpuTest = Measure-Command {
-            1..100 | ForEach-Object { Start-Sleep -Milliseconds 1 }
-        }
-        $baseline.CPU_Responsividad = [math]::Round($cpuTest.TotalMilliseconds, 1)
-        Write-Host "  • CPU: $($baseline.CPU_Responsividad)ms" -ForegroundColor DarkGray
+        $memory = Get-CimInstance Win32_PhysicalMemory
         
-        Write-Host "  » Midiendo rendimiento de disco..." -ForegroundColor DarkGray
-        try {
-            $diskCounter = Get-Counter '\LogicalDisk(*)\Avg. Disk Queue Length' -ErrorAction SilentlyContinue
-            if ($diskCounter) {
-                $baseline.DiskQueue = [math]::Round($diskCounter.CounterSamples[0].CookedValue, 2)
-                Write-Host "  • Disk Queue: $($baseline.DiskQueue)" -ForegroundColor DarkGray
-            }
-        } catch {
-            $baseline.DiskQueue = "N/A"
-        }
-        
-        Write-Host "  » Midiendo latencia de red (proxy-aware)..." -ForegroundColor DarkGray
-        $proxyEnabled = (Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -Name ProxyEnable -ErrorAction SilentlyContinue) -eq 1
-        
-        if ($proxyEnabled) {
-            Write-Host "  • Proxy detectado, usando método alternativo..." -ForegroundColor Yellow
-            try {
-                $webClient = New-Object System.Net.WebClient
-                $webClient.Proxy = [System.Net.WebRequest]::DefaultWebProxy
-                $webClient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials
+        if ($memory) {
+            foreach ($module in $memory) {
+                $moduleCapacity = if ($module.Capacity) { $module.Capacity / 1GB } else { 0 }
+                $totalRAM += $moduleCapacity
                 
-                $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-                $null = $webClient.DownloadString("http://www.msftconnecttest.com/connecttest.txt")
-                $stopwatch.Stop()
-                
-                $baseline.NetworkLatency = [math]::Round($stopwatch.ElapsedMilliseconds, 1)
-                Write-Host "  • Red: $($baseline.NetworkLatency)ms (via Proxy)" -ForegroundColor DarkGray
-            } catch {
-                $baseline.NetworkLatency = "Proxy"
-                Write-Host "  • Red: Proxy sin conectividad externa" -ForegroundColor Yellow
-            }
-        } else {
-            try {
-                $pingTest = Test-Connection 8.8.8.8 -Count 2 -ErrorAction SilentlyContinue
-                if ($pingTest -and $pingTest[0].ResponseTime -gt 0) {
-                    $avgLatency = ($pingTest.ResponseTime | Measure-Object -Average).Average
-                    $baseline.NetworkLatency = [math]::Round($avgLatency, 1)
-                    Write-Host "  • Red: $($baseline.NetworkLatency)ms" -ForegroundColor DarkGray
-                } else {
-                    $baseline.NetworkLatency = "N/A"
-                    Write-Host "  • Red: Sin medición válida" -ForegroundColor Yellow
+                $moduleDetails = @{
+                    Capacity = [math]::Round($moduleCapacity, 1)
+                    Type = switch ($module.MemoryType) {
+                        20 { "DDR" }
+                        21 { "DDR2" }
+                        24 { "DDR3" }
+                        26 { "DDR4" }
+                        34 { "DDR5" }
+                        default { "Unknown" }
+                    }
+                    Speed = if ($module.Speed) { "$($module.Speed) MHz" } else { "N/A" }
+                    Manufacturer = if ($module.Manufacturer) { $module.Manufacturer.Trim() } else { "Unknown" }
+                    PartNumber = if ($module.PartNumber) { $module.PartNumber.Trim() } else { "N/A" }
                 }
-            } catch {
-                $baseline.NetworkLatency = "N/A"
-                Write-Host "  • Red: Error en medición" -ForegroundColor Yellow
+                
+                $modules += $moduleDetails
+            }
+        }
+    } catch {
+        Write-Host "  ⚠️  Error al analizar la RAM" -ForegroundColor Yellow
+    }
+    
+    $channelMode = "Desconocido"
+    if ($modules.Count -ge 2) {
+        $firstModule = $modules[0]
+        $allSame = $true
+        
+        foreach ($module in $modules) {
+            if ($module.Capacity -ne $firstModule.Capacity -or $module.Type -ne $firstModule.Type) {
+                $allSame = $false
+                break
             }
         }
         
-        Write-Host "✔ Benchmark inicial completado" -ForegroundColor Green
-        Write-Host ""
+        if ($allSame) {
+            if ($modules.Count -eq 2) { $channelMode = "Dual Channel" }
+            elseif ($modules.Count -eq 4) { $channelMode = "Quad Channel" }
+            else { $channelMode = "Multi Channel" }
+        } else {
+            $channelMode = "Configuración mixta"
+        }
+    } elseif ($modules.Count -eq 1) {
+        $channelMode = "Single Channel"
+    }
+    
+    return @{
+        TotalGB = [math]::Round($totalRAM, 1)
+        Modules = $modules
+        ChannelMode = $channelMode
+        IsUpgradeable = ($modules.Count -lt 4) -or ($modules.Count -eq 2 -and $modules[0].Capacity -lt 16)
+    }
+}
+
+function Get-StorageInfoDetallada {
+    $storage = @{
+        SystemDrive = "C:"
+        Drives = @()
+        BottleneckRisk = "None"
+        BottleneckReason = ""
+    }
+    
+    try {
+        $systemDrive = (Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue).SystemDrive
+        if ($systemDrive) {
+            $storage.SystemDrive = $systemDrive
+        }
+    } catch {
+        Write-Host "  ⚠️  Error obteniendo unidad del sistema" -ForegroundColor Yellow
+    }
+    
+    try {
+        $disks = Get-PhysicalDisk -ErrorAction SilentlyContinue
+        
+        if ($disks) {
+            foreach ($disk in $disks) {
+                try {
+                    $diskDetails = @{
+                        DeviceID = if ($disk.DeviceID) { $disk.DeviceID } else { "Unknown" }
+                        MediaType = if ($disk.MediaType) { $disk.MediaType.ToString() } else { "Unknown" }
+                        SizeGB = if ($disk.Size) { [math]::Round($disk.Size / 1GB, 1) } else { 0 }
+                        BusType = if ($disk.BusType) { $disk.BusType.ToString() } else { "Unknown" }
+                        Model = if ($disk.FriendlyName) { $disk.FriendlyName } else { "Unknown" }
+                        HealthStatus = if ($disk.HealthStatus) { $disk.HealthStatus.ToString() } else { "Unknown" }
+                        OperationalStatus = if ($disk.OperationalStatus) { $disk.OperationalStatus.ToString() } else { "Unknown" }
+                        RPM = "N/A"
+                        SSDType = "N/A"
+                    }
+                    
+                    if ($disk.MediaType -eq "HDD") {
+                        $diskDetails.RPM = "7200 RPM"
+                    }
+                    
+                    if ($disk.MediaType -eq "SSD") {
+                        if ($disk.BusType -eq "NVMe") {
+                            $diskDetails.SSDType = "NVMe"
+                        } else {
+                            $diskDetails.SSDType = "SATA"
+                        }
+                    }
+                    
+                    $storage.Drives += $diskDetails
+                    
+                    if ($storage.SystemDrive -like "*$($disk.DeviceID)*" -or 
+                        ($storage.SystemDrive -eq "C:" -and $disk.DeviceID -eq 0)) {
+                        if ($disk.MediaType -eq "HDD") {
+                            $storage.BottleneckRisk = "Alto"
+                            $storage.BottleneckReason = "Sistema en HDD"
+                        } elseif ($disk.MediaType -eq "SSD" -and $disk.BusType -eq "SATA") {
+                            $storage.BottleneckRisk = "Medio"
+                            $storage.BottleneckReason = "Sistema en SSD SATA"
+                        }
+                    }
+                    
+                } catch {
+                    Write-Host "  ⚠️  Error procesando disco" -ForegroundColor Yellow
+                }
+            }
+        }
         
     } catch {
-        Write-Host "  ⚠️  Benchmark inicial omitido por errores" -ForegroundColor Yellow
-        $GlobalConfig.EnableBenchmark = $false
+        Write-Host "  ⚠️  Error al acceder a información de almacenamiento" -ForegroundColor Yellow
     }
+    
+    return $storage
 }
 
-# =====================================================================
-# VERIFICACIÓN DE PRIVILEGIOS DE ADMINISTRADOR
-# =====================================================================
-Write-Host "» Verificando privilegios de administrador..." -ForegroundColor DarkGray
-
-$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-if (-NOT $isAdmin) {
-    Write-Host "`n❌ ERROR: Este script requiere privilegios de administrador" -ForegroundColor Red
-    Write-Host "   Por favor, ejecuta PowerShell como administrador" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "   Métodos:" -ForegroundColor DarkGray
-    Write-Host "   1. Click derecho en PowerShell → 'Ejecutar como administrador'" -ForegroundColor DarkGray
-    Write-Host "   2. Windows + X → Windows PowerShell (Administrador)" -ForegroundColor DarkGray
-    Write-Host "   3. Buscar 'PowerShell' → Click derecho → 'Ejecutar como administrador'" -ForegroundColor DarkGray
-    Write-Host ""
+function Get-GPUInfoDetallada {
+    $gpus = @()
     
-    $elevate = Read-Host "¿Intentar ejecutar como administrador? (S/N)"
-    if ($elevate -eq "S" -or $elevate -eq "s") {
-        Write-Host "Reintentando con permisos elevados..." -ForegroundColor Yellow
+    try {
+        $videoControllers = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | 
+                          Where-Object { $_.Name -and $_.Name -ne "Microsoft Basic Display Driver" }
         
-        $scriptPath = $MyInvocation.MyCommand.Path
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "powershell.exe"
-        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
-        $psi.Verb = "runas"
+        if ($videoControllers) {
+            foreach ($gpu in $videoControllers) {
+                $gpuDetails = @{
+                    Name = if ($gpu.Name) { $gpu.Name.Trim() } else { "Unknown" }
+                    AdapterRAM = if ($gpu.AdapterRAM -gt 0) { 
+                        [math]::Round($gpu.AdapterRAM / 1MB, 1) 
+                    } else { "N/A" }
+                    DriverVersion = if ($gpu.DriverVersion) { $gpu.DriverVersion } else { "N/A" }
+                    DriverDate = "N/A"
+                }
+                
+                if ($gpu.Name -match "NVIDIA") {
+                    $gpuDetails.Vendor = "NVIDIA"
+                    $gpuDetails.Model = "NVIDIA GPU"
+                } elseif ($gpu.Name -match "AMD|Radeon") {
+                    $gpuDetails.Vendor = "AMD"
+                    $gpuDetails.Model = "AMD GPU"
+                } elseif ($gpu.Name -match "Intel") {
+                    $gpuDetails.Vendor = "Intel"
+                    $gpuDetails.Model = "Intel Graphics"
+                } else {
+                    $gpuDetails.Vendor = "Unknown"
+                    $gpuDetails.Model = "Unknown"
+                }
+                
+                if ($gpu.PNPDeviceID -match "PCI\\VEN_") {
+                    $gpuDetails.Connection = "PCIe"
+                    if ($gpu.Name -match "UHD|HD Graphics|Radeon Graphics") {
+                        $gpuDetails.Type = "Integrada"
+                    } else {
+                        $gpuDetails.Type = "Dedicada"
+                    }
+                } else {
+                    $gpuDetails.Type = "Unknown"
+                    $gpuDetails.Connection = "Unknown"
+                }
+                
+                $gpus += $gpuDetails
+            }
+        }
+        
+    } catch {
+        Write-Host "  ⚠️  Error al analizar la GPU" -ForegroundColor Yellow
+    }
+    
+    return $gpus
+}
+
+function Get-NetworkInfoDetallada {
+    $networkInfo = @{
+        Adapters = @()
+        HasProxy = $false
+        ProxyServer = ""
+        ConnectionType = "Desconocido"
+        EthernetDetected = $false
+        WiFiDetected = $false
+    }
+    
+    try {
+        $adapters = Get-NetAdapter -Physical -ErrorAction SilentlyContinue
+        
+        foreach ($adapter in $adapters) {
+            $adapterInfo = @{
+                Name = $adapter.Name
+                InterfaceDescription = $adapter.InterfaceDescription
+                Status = $adapter.Status
+                LinkSpeed = if ($adapter.LinkSpeed) { $adapter.LinkSpeed } else { "N/A" }
+                MacAddress = $adapter.MacAddress
+            }
+            
+            if ($adapter.InterfaceDescription -match "Wi-Fi|Wireless|802.11") {
+                $adapterInfo.Type = "Wi-Fi"
+                $networkInfo.WiFiDetected = $true
+            } elseif ($adapter.InterfaceDescription -match "Ethernet|Gigabit|LAN") {
+                $adapterInfo.Type = "Ethernet"
+                $networkInfo.EthernetDetected = $true
+            } else {
+                $adapterInfo.Type = "Otro"
+            }
+            
+            $networkInfo.Adapters += $adapterInfo
+        }
         
         try {
-            [System.Diagnostics.Process]::Start($psi) | Out-Null
-            exit 0
+            $proxySettings = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -ErrorAction SilentlyContinue
+            
+            if ($proxySettings) {
+                if ($proxySettings.ProxyEnable -eq 1 -and $proxySettings.ProxyServer) {
+                    $networkInfo.HasProxy = $true
+                    $networkInfo.ProxyServer = $proxySettings.ProxyServer
+                    $networkInfo.ProxyOverride = if ($proxySettings.ProxyOverride) { $proxySettings.ProxyOverride } else { "N/A" }
+                }
+            }
         } catch {
-            Write-Host "No se pudo elevar. Ejecuta manualmente como administrador." -ForegroundColor Red
+            Write-Host "  ⚠️  Error al verificar configuración de proxy" -ForegroundColor Yellow
         }
+        
+        if ($networkInfo.EthernetDetected) {
+            $networkInfo.ConnectionType = "Ethernet"
+        } elseif ($networkInfo.WiFiDetected) {
+            $networkInfo.ConnectionType = "Wi-Fi"
+        }
+        
+        try {
+            $testResult = Test-NetConnection -ComputerName "8.8.8.8" -Port 443 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $networkInfo.HasInternet = $testResult.TcpTestSucceeded
+            $networkInfo.PingMs = if ($testResult.PingSucceeded) { $testResult.PingReplyDetails.RoundtripTime } else { "N/A" }
+        } catch {
+            $networkInfo.HasInternet = $false
+            $networkInfo.PingMs = "N/A"
+        }
+        
+    } catch {
+        Write-Host "  ⚠️  Error al analizar la red" -ForegroundColor Yellow
     }
     
-    Read-Host "`nPresiona Enter para salir"
-    exit 1
+    return $networkInfo
 }
 
-Write-Host "✔ Privilegios de administrador confirmados" -ForegroundColor Green
+# =====================================================================
+# [FASE 0] Análisis inteligente del sistema
+# =====================================================================
+Write-Host "[FASE 0] Análisis inteligente de tu sistema" -ForegroundColor Magenta
+Write-Host ("─" * 70) -ForegroundColor DarkGray
+Write-Host "🔍 Analizando tu hardware y configuración..." -ForegroundColor DarkGray
 Write-Host ""
 
-# =====================================================================
-# ENCABEZADO PRINCIPAL
-# =====================================================================
-Write-Host ""
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "   WINDOWS DE MENTE v1.0  |  Optimización Consciente de Windows" -ForegroundColor Cyan
-Write-Host "   Guidance, not force" -ForegroundColor DarkGray
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host ""
-
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "Inicializando..." -PercentComplete 0
-
-# =====================================================================
-# [FASE 0] Análisis contextual del sistema
-# =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 0: Analizando sistema..." -PercentComplete 5
-
-Write-Host "[FASE 0] Análisis contextual del sistema" -ForegroundColor Yellow
-Write-Host ("─" * 72) -ForegroundColor DarkGray
-
-$SystemProfile = @{
-    OSEdition = "Unknown"
-    CPU = @{
-        Vendor = "Unknown"
-        Cores = 0
-        Threads = 0
-        Modern = $false
-        Hybrid = $false
-    }
-    GPU = @{
-        Type = "Unknown"
-        Vendor = "Unknown"
-        IsOEMDriver = $false
-    }
-    Network = @{
-        PrimaryType = "Unknown"
-        Vendor = "Unknown"
-        IsProblematic = $false
-        AdapterName = $null
-    }
-    Storage = @{
-        SystemDiskType = "Unknown"
-    }
+$SystemProfileDetallado = @{
+    CPU = Get-CPUInfoDetallada
+    RAM = Get-RAMInfoDetallada
+    Storage = Get-StorageInfoDetallada
+    GPU = Get-GPUInfoDetallada
+    Network = Get-NetworkInfoDetallada
     Platform = @{
         IsLaptop = $false
         HasBattery = $false
-        PowerSource = "Unknown"
     }
-    USB = @{
-        HasUSB3 = $false
-    }
-    RiskLevel = "Medium"
-    Strategy = "Balanced"
-}
-
-try {
-    $osInfo = Get-CimInstance Win32_OperatingSystem
-    $SystemProfile.OSEdition = $osInfo.Caption
-} catch {
-    $SystemProfile.OSEdition = "Windows (no detectado)"
-}
-
-try {
-    $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-    $SystemProfile.CPU.Cores   = $cpu.NumberOfCores
-    $SystemProfile.CPU.Threads = $cpu.NumberOfLogicalProcessors
-    if ($cpu.Name -match "Intel") { $SystemProfile.CPU.Vendor = "Intel" }
-    elseif ($cpu.Name -match "AMD") { $SystemProfile.CPU.Vendor = "AMD" }
-    if ($cpu.MaxClockSpeed -ge 2300 -and $cpu.NumberOfLogicalProcessors -ge 4) {
-        $SystemProfile.CPU.Modern = $true
-    }
-    if ($SystemProfile.CPU.Vendor -eq "Intel" -and $cpu.Threads -gt $cpu.Cores * 2) {
-        $SystemProfile.CPU.Hybrid = $true
-    }
-} catch {
-    Write-Host "  ⚠️ CPU: detección parcial" -ForegroundColor Yellow
-}
-
-try {
-    $gpus = Get-CimInstance Win32_VideoController |
-            Where-Object { $_.Name -ne "Microsoft Basic Display Driver" }
-    if ($gpus.Count -gt 1) {
-        $SystemProfile.GPU.Type = "Hybrid"
-    } elseif ($gpus.Count -eq 1) {
-        if ($gpus[0].Name -match "Intel|UHD|HD Graphics|Radeon Graphics") {
-            $SystemProfile.GPU.Type = "Integrated"
-        } else {
-            $SystemProfile.GPU.Type = "Dedicated"
-        }
-    }
-    foreach ($gpu in $gpus) {
-        if ($gpu.Name -match "NVIDIA") { $SystemProfile.GPU.Vendor = "NVIDIA" }
-        elseif ($gpu.Name -match "AMD|Radeon") { $SystemProfile.GPU.Vendor = "AMD" }
-        elseif ($gpu.Name -match "Intel") { $SystemProfile.GPU.Vendor = "Intel" }
-    }
-    if ($SystemProfile.Platform.IsLaptop -and ($gpus.PNPDeviceID -match "SUBSYS_")) {
-        $SystemProfile.GPU.IsOEMDriver = $true
-    }
-} catch {
-    Write-Host "  ⚠️ GPU: detección básica" -ForegroundColor Yellow
-}
-
-try {
-    $adapter = Get-NetAdapter -Physical |
-               Where-Object {
-                   $_.Status -eq "Up" -and
-                   $_.InterfaceDescription -notmatch "Virtual|VPN|Hyper-V"
-               } | Select-Object -First 1
-    if ($adapter) {
-        $SystemProfile.Network.AdapterName = $adapter.Name
-        if ($adapter.InterfaceDescription -match "Wi-Fi|Wireless") {
-            $SystemProfile.Network.PrimaryType = "WiFi"
-        } else {
-            $SystemProfile.Network.PrimaryType = "Ethernet"
-        }
-        if ($adapter.InterfaceDescription -match "Intel") {
-            $SystemProfile.Network.Vendor = "Intel"
-        }
-        elseif ($adapter.InterfaceDescription -match "Realtek") {
-            $SystemProfile.Network.Vendor = "Realtek"
-        }
-        elseif ($adapter.InterfaceDescription -match "Killer|Bigfoot|Rivet") {
-            $SystemProfile.Network.Vendor = "Killer"
-            $SystemProfile.Network.IsProblematic = $true
-        }
-        else {
-            $SystemProfile.Network.Vendor = "Other"
-        }
-    }
-} catch {
-    Write-Host "  ⚠️ Red: sin adaptador activo confiable" -ForegroundColor Yellow
-}
-
-try {
-    $systemDisk = Get-PhysicalDisk | Where-Object { $_.DeviceID -eq 0 } | Select-Object -First 1
-    if ($systemDisk) {
-        switch ($systemDisk.MediaType) {
-            "SSD"       { $SystemProfile.Storage.SystemDiskType = "SSD" }
-            "HDD"       { $SystemProfile.Storage.SystemDiskType = "HDD" }
-            "NVMe"      { $SystemProfile.Storage.SystemDiskType = "NVMe" }
-            default     { $SystemProfile.Storage.SystemDiskType = "Unknown" }
-        }
-    }
-} catch {
-    Write-Host "  ⚠️ Almacenamiento: tipo no detectado" -ForegroundColor Yellow
 }
 
 try {
     $chassis = Get-CimInstance Win32_SystemEnclosure -ErrorAction SilentlyContinue
-    $laptopTypes = @(8, 9, 10, 11, 12, 14, 18, 21, 31)
-    if ($chassis.ChassisTypes | Where-Object { $_ -in $laptopTypes }) {
-        $SystemProfile.Platform.IsLaptop = $true
+    if ($chassis) {
+        $laptopTypes = @(8, 9, 10, 11, 12, 14, 18, 21, 31)
+        if ($chassis.ChassisTypes | Where-Object { $_ -in $laptopTypes }) {
+            $SystemProfileDetallado.Platform.IsLaptop = $true
+        }
     }
+    
     $battery = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue
     if ($battery) {
-        $SystemProfile.Platform.HasBattery = $true
-        $SystemProfile.Platform.PowerSource = if ($battery.BatteryStatus -eq 2) { "AC" } else { "Battery" }
+        $SystemProfileDetallado.Platform.HasBattery = $true
     }
-} catch {}
-
-try {
-    $os = Get-CimInstance Win32_OperatingSystem
-    $totalRAM = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
-    Write-Host "  • RAM total detectada: ${totalRAM} GB" -ForegroundColor DarkGray
 } catch {
-    $totalRAM = 0
-    Write-Host "  ⚠️ RAM: no detectada" -ForegroundColor Yellow
+    Write-Host "  ⚠️  Error detectando tipo de dispositivo" -ForegroundColor Yellow
 }
 
-try {
-    $usb = Get-CimInstance Win32_USBController |
-           Where-Object { $_.Name -match "USB 3|eXtensible" }
-    $SystemProfile.USB.HasUSB3 = [bool]$usb
-} catch {}
+Write-Host "✅ ANÁLISIS COMPLETADO:" -ForegroundColor Green
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
-$risk = 0
-if ($SystemProfile.Platform.IsLaptop -and $SystemProfile.GPU.IsOEMDriver) {
-    $risk += 2
+Write-Host "🖥️  PROCESADOR:" -ForegroundColor Yellow
+Write-Host "  • Modelo: $($SystemProfileDetallado.CPU.Modelo)" -ForegroundColor DarkGray
+if ($SystemProfileDetallado.CPU.Generation -ne "Desconocida") {
+    Write-Host "  • Generación: $($SystemProfileDetallado.CPU.Generation)" -ForegroundColor DarkGray
 }
-if ($SystemProfile.Network.IsProblematic) {
-    $risk += 1
-}
-if ($totalRAM -lt 4) {
-    $risk += 1
-    Write-Host "  ⚠️ RAM baja (<4GB): aumenta riesgo" -ForegroundColor Yellow
-}
+Write-Host "  • Núcleos/Hilos: $($SystemProfileDetallado.CPU.Cores)/$($SystemProfileDetallado.CPU.Threads)" -ForegroundColor DarkGray
 
-if ($risk -ge 3) {
-    $SystemProfile.RiskLevel = "High"
-    $SystemProfile.Strategy  = "Conservative"
-} elseif ($risk -eq 2) {
-    $SystemProfile.RiskLevel = "Medium"
-    $SystemProfile.Strategy  = "Balanced"
-} else {
-    $SystemProfile.RiskLevel = "Low"
-    $SystemProfile.Strategy  = "Aggressive"
+Write-Host "💾 MEMORIA RAM:" -ForegroundColor Yellow
+Write-Host "  • Total: $($SystemProfileDetallado.RAM.TotalGB) GB" -ForegroundColor DarkGray
+Write-Host "  • Configuración: $($SystemProfileDetallado.RAM.ChannelMode)" -ForegroundColor DarkGray
+
+Write-Host "💿 ALMACENAMIENTO:" -ForegroundColor Yellow
+if ($SystemProfileDetallado.Storage.Drives.Count -gt 0) {
+    $mainDrive = $SystemProfileDetallado.Storage.Drives[0]
+    $driveType = if ($mainDrive.MediaType -eq "SSD") {
+        if ($mainDrive.SSDType -eq "NVMe") { "NVMe (Rápido)" } else { "SSD SATA (Bueno)" }
+    } else { "HDD (Más lento)" }
+    Write-Host "  • Principal: $driveType - $($mainDrive.SizeGB)GB" -ForegroundColor DarkGray
 }
 
-Write-Host "`n📋 PERFIL DETECTADO" -ForegroundColor Cyan
-Write-Host "  • Plataforma: $(if($SystemProfile.Platform.IsLaptop){'Laptop'}else{'Desktop'})" -ForegroundColor DarkGray
-Write-Host "  • CPU: $($SystemProfile.CPU.Vendor) $(if($SystemProfile.CPU.Modern){'Moderna'}else{'Legacy'})" -ForegroundColor DarkGray
-Write-Host "  • RAM: ${totalRAM} GB" -ForegroundColor DarkGray
-Write-Host "  • GPU: $($SystemProfile.GPU.Type) - $($SystemProfile.GPU.Vendor)" -ForegroundColor DarkGray
-Write-Host "  • Red: $($SystemProfile.Network.PrimaryType) - $($SystemProfile.Network.Vendor)" -ForegroundColor DarkGray
-Write-Host "  • Almacenamiento: $($SystemProfile.Storage.SystemDiskType)" -ForegroundColor DarkGray
-Write-Host "  • Riesgo: $($SystemProfile.RiskLevel)" -ForegroundColor $(switch($SystemProfile.RiskLevel){"High"{'Red'}"Medium"{'Yellow'}default{'Green'}})
-Write-Host "  • Estrategia: $($SystemProfile.Strategy)" -ForegroundColor DarkGray
+Write-Host "🎮 GRÁFICOS:" -ForegroundColor Yellow
+if ($SystemProfileDetallado.GPU.Count -gt 0) {
+    $gpuType = if ($SystemProfileDetallado.GPU[0].Type -eq "Dedicada") { "Dedicada" } else { "Integrada" }
+    Write-Host "  • $gpuType: $($SystemProfileDetallado.GPU[0].Name)" -ForegroundColor DarkGray
+}
+
+Write-Host "🌐 CONEXIÓN DE RED:" -ForegroundColor Yellow
+Write-Host "  • Tipo: $($SystemProfileDetallado.Network.ConnectionType)" -ForegroundColor DarkGray
+if ($SystemProfileDetallado.Network.HasProxy) {
+    Write-Host "  • Proxy detectado: $($SystemProfileDetallado.Network.ProxyServer)" -ForegroundColor Cyan
+}
+
+if ($SystemProfileDetallado.Platform.IsLaptop) {
+    Write-Host "💻 DISPOSITIVO:" -ForegroundColor Yellow
+    Write-Host "  • Laptop detectado" -ForegroundColor DarkGray
+    if ($SystemProfileDetallado.Platform.HasBattery) {
+        Write-Host "  • Con batería" -ForegroundColor DarkGray
+    }
+}
+
 Write-Host ""
+Write-Host "✅ Análisis completado" -ForegroundColor Green
 
 # =====================================================================
-# [FASE 0-B] ANÁLISIS DE OPTIMIZACIONES NECESARIAS
+# FUNCIÓN PARA GUARDAR REPORTE EN ESCRITORIO
 # =====================================================================
-Write-Host "[PLAN] Análisis de optimizaciones recomendadas" -ForegroundColor Magenta
-Write-Host "─" * 70 -ForegroundColor DarkGray
+function Save-SystemProfileReport {
+    param(
+        [hashtable]$SystemProfileDetallado,
+        [hashtable]$FinalProfile,
+        [array]$OptimizationPlan,
+        [int]$appliedCount,
+        [hashtable]$GlobalConfig,
+        [int]$tweaksCorregidos,
+        [int]$tweaksAjustados
+    )
+    
+    $desktopPath = [Environment]::GetFolderPath("Desktop")
+    $reportFileName = "Perfil_Sistema_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+    $reportPath = Join-Path $desktopPath $reportFileName
+    
+    $idealProfile = @{
+        CPU = @{
+            Modelo = "Intel Core i9-14900K o AMD Ryzen 9 7950X"
+            Cores = 24
+            Threads = 32
+            BaseClock = 5500
+            Cache = "36 MB L3"
+        }
+        RAM = @{
+            TotalGB = 64
+            Type = "DDR5 6000MHz"
+            Channel = "Dual Channel"
+        }
+        Storage = @{
+            Type = "NVMe PCIe 4.0"
+            SizeGB = 2000
+            Speed = "7,000 MB/s"
+        }
+        GPU = @{
+            Modelo = "NVIDIA RTX 4080 / AMD RX 7900 XTX"
+            VRAM = "16 GB GDDR6"
+            Type = "Dedicada"
+        }
+        Network = @{
+            Type = "Fibra óptica"
+            Latency = "<10 ms"
+            Speed = "1 Gbps"
+        }
+    }
+    
+    $cpuScore = 0
+    $userCores = $SystemProfileDetallado.CPU.Cores
+    if ($userCores -ge 16) { $cpuScore = 30 }
+    elseif ($userCores -ge 12) { $cpuScore = 25 }
+    elseif ($userCores -ge 8) { $cpuScore = 20 }
+    elseif ($userCores -ge 6) { $cpuScore = 15 }
+    elseif ($userCores -ge 4) { $cpuScore = 10 }
+    elseif ($userCores -ge 2) { $cpuScore = 5 }
+    
+    if ($SystemProfileDetallado.CPU.Generation -match "(10ma|11va|12va|13va|14va|Ryzen [5-9])") {
+        $cpuScore += 5
+    }
+    
+    $ramScore = 0
+    $userRAM = $SystemProfileDetallado.RAM.TotalGB
+    if ($userRAM -ge 64) { $ramScore = 25 }
+    elseif ($userRAM -ge 32) { $ramScore = 20 }
+    elseif ($userRAM -ge 16) { $ramScore = 15 }
+    elseif ($userRAM -ge 8) { $ramScore = 10 }
+    elseif ($userRAM -ge 4) { $ramScore = 5 }
+    
+    if ($SystemProfileDetallado.RAM.ChannelMode -eq "Dual Channel") { $ramScore += 2 }
+    elseif ($SystemProfileDetallado.RAM.ChannelMode -eq "Quad Channel") { $ramScore += 5 }
+    
+    $storageScore = 0
+    $mainDrive = $SystemProfileDetallado.Storage.Drives | Select-Object -First 1
+    if ($mainDrive) {
+        switch -wildcard ($mainDrive.MediaType) {
+            "*SSD*" {
+                if ($mainDrive.SSDType -eq "NVMe") { $storageScore = 20 }
+                else { $storageScore = 15 }
+            }
+            "*HDD*" { $storageScore = 5 }
+            default { $storageScore = 0 }
+        }
+        
+        if ($mainDrive.SizeGB -ge 1000) { $storageScore += 5 }
+        elseif ($mainDrive.SizeGB -ge 500) { $storageScore += 3 }
+    }
+    
+    $gpuScore = 0
+    if ($SystemProfileDetallado.GPU.Count -gt 0) {
+        $gpu = $SystemProfileDetallado.GPU[0]
+        if ($gpu.Type -eq "Dedicada") { $gpuScore = 15 }
+        elseif ($gpu.Type -eq "Integrada") { $gpuScore = 5 }
+        
+        if ($gpu.AdapterRAM -ge 12) { $gpuScore += 5 }
+        elseif ($gpu.AdapterRAM -ge 8) { $gpuScore += 3 }
+        elseif ($gpu.AdapterRAM -ge 4) { $gpuScore += 1 }
+    }
+    
+    $userScore = $cpuScore + $ramScore + $storageScore + $gpuScore
+    $maxPossibleScore = 105
+    $userScore = [math]::Min($maxPossibleScore, $userScore)
+    
+    $relativeToOwnHardware = [math]::Round(($FinalProfile.RelativeScore / 100) * 100)
+    $comparedToIdeal = [math]::Round(($userScore / $maxPossibleScore) * 100)
+    
+    $performanceCategory = switch ($comparedToIdeal) {
+        { $_ -ge 80 } { "Rendimiento Premium" }
+        { $_ -ge 60 } { "Rendimiento Alto" }
+        { $_ -ge 40 } { "Rendimiento Medio" }
+        { $_ -ge 20 } { "Rendimiento Básico" }
+        default { "Rendimiento Mínimo" }
+    }
+    
+    $performanceMessage = switch ($performanceCategory) {
+        "Rendimiento Premium" { "¡Excelente! Tu PC está en el top de rendimiento." }
+        "Rendimiento Alto" { "Muy buen rendimiento para cualquier tarea." }
+        "Rendimiento Medio" { "Buen rendimiento para trabajo y entretenimiento." }
+        "Rendimiento Básico" { "Adecuado para tareas cotidianas y ofimática." }
+        "Rendimiento Mínimo" { "Apto para tareas básicas, considera mejoras." }
+    }
+    
+    $reportContent = @"
+════════════════════════════════════════════════════════════════════
+                      📊 PERFIL DEL SISTEMA
+════════════════════════════════════════════════════════════════════
+Fecha del análisis: $(Get-Date -Format 'dd/MM/yyyy HH:mm:ss')
+Versión de Windows de Mente: v1.0
 
-# Definir tweaks peligrosos para análisis
+────────────────────────────────────────────────────────────────────
+🖥️  HARDWARE DETECTADO
+────────────────────────────────────────────────────────────────────
+• Procesador: $($SystemProfileDetallado.CPU.Modelo)
+  - Generación: $($SystemProfileDetallado.CPU.Generation)
+  - Núcleos/Hilos: $($SystemProfileDetallado.CPU.Cores)/$($SystemProfileDetallado.CPU.Threads)
+  
+• Memoria RAM: $($SystemProfileDetallado.RAM.TotalGB) GB
+  - Configuración: $($SystemProfileDetallado.RAM.ChannelMode)
+  
+• Almacenamiento: $(if($mainDrive){ "$($mainDrive.MediaType) - $($mainDrive.SizeGB)GB" }else{ "No detectado" })
+  
+• Gráficos: $(if($SystemProfileDetallado.GPU.Count -gt 0){ $SystemProfileDetallado.GPU[0].Name }else{ "No detectado" })
+  - Tipo: $(if($SystemProfileDetallado.GPU.Count -gt 0){ $SystemProfileDetallado.GPU[0].Type }else{ "N/A" })
+
+• Red: $($SystemProfileDetallado.Network.ConnectionType)
+  $(if($SystemProfileDetallado.Network.HasProxy){ "Proxy: $($SystemProfileDetallado.Network.ProxyServer)" }else{ "Sin proxy configurado" })
+
+• Dispositivo: $(if($SystemProfileDetallado.Platform.IsLaptop){ "Laptop" }else{ "Desktop" })
+
+────────────────────────────────────────────────────────────────────
+📈 ANÁLISIS DE RENDIMIENTO
+────────────────────────────────────────────────────────────────────
+• Score relativo a tu hardware: $relativeToOwnHardware/100
+  → $(if($relativeToOwnHardware -ge 70){ "Tu PC funciona correctamente y aprovecha bien sus recursos actuales." }else{ "Hay margen para optimizar el uso de tu hardware actual." })
+
+• Score comparado con el perfil ideal: $comparedToIdeal/100
+  → El perfil ideal (100) corresponde a una PC de alta gama con:
+     - CPU Intel i9-14900K o AMD Ryzen 9 7950X
+     - 64 GB RAM DDR5 6000MHz
+     - SSD NVMe PCIe 4.0 (2TB)
+     - GPU dedicada RTX 4080 o similar
+     - Conexión de fibra óptica (<10 ms)
+
+• Categoría: $performanceCategory
+  → $performanceMessage
+
+────────────────────────────────────────────────────────────────────
+📋 DESGLOSE DE PUNTUACIÓN
+────────────────────────────────────────────────────────────────────
+• Procesador: $cpuScore/35 (ideal: 35)
+• Memoria RAM: $ramScore/25 (ideal: 25)
+• Almacenamiento: $storageScore/25 (ideal: 25)
+• Gráficos: $gpuScore/20 (ideal: 20)
+
+────────────────────────────────────────────────────────────────────
+🔧 OPTIMIZACIONES APLICADAS
+────────────────────────────────────────────────────────────────────
+• Tweaks peligrosos eliminados: $tweaksCorregidos
+• Ajustes específicos para tu hardware: $tweaksAjustados
+• Total de optimizaciones aplicadas: $appliedCount
+• Modo: $(if($GlobalConfig.SafeMode){ 'Solo análisis (sin cambios)' }else{ 'Optimización activa' })
+
+────────────────────────────────────────────────────────────────────
+🎯 RECOMENDACIONES PERSONALIZADAS
+────────────────────────────────────────────────────────────────────
+"@
+    
+    $recommendations = @()
+    
+    if ($comparedToIdeal -lt 40) {
+        $recommendations += "• Considera actualizar a un SSD si aún usas disco duro"
+        $recommendations += "• Añadir más RAM mejoraría significativamente el rendimiento"
+    }
+    
+    if ($SystemProfileDetallado.CPU.Generation -match "(1ra|2da|3ra|4ta)") {
+        $recommendations += "• Tu procesador es antiguo, considera actualizar para mejor rendimiento"
+    }
+    
+    if ($SystemProfileDetallado.RAM.TotalGB -lt 8) {
+        $recommendations += "• Con menos de 8GB de RAM, limita las pestañas del navegador"
+    }
+    
+    if ($SystemProfileDetallado.Storage.BottleneckRisk -eq "Alto") {
+        $recommendations += "• El disco duro ralentiza tu sistema, un SSD sería una gran mejora"
+    }
+    
+    if ($recommendations.Count -eq 0) {
+        $recommendations += "• Tu sistema está bien configurado, mantén actualizados los drivers"
+        $recommendations += "• Realiza mantenimiento periódico con herramientas de Windows"
+    }
+    
+    $reportContent += "`n$($recommendations -join "`n")`n"
+    
+    $reportContent += @"
+────────────────────────────────────────────────────────────────────
+💡 CONSEJOS GENERALES
+────────────────────────────────────────────────────────────────────
+• Mantén Windows Update siempre activado
+• Usa el limpiador de disco periódicamente
+• Reinicia tu PC al menos una vez por semana
+• Mantén al menos 15% de espacio libre en tu disco principal
+
+════════════════════════════════════════════════════════════════════
+                  Windows de Mente v1.0 - Optimización Inteligente
+════════════════════════════════════════════════════════════════════
+"@
+    
+    try {
+        $reportContent | Out-File -FilePath $reportPath -Encoding UTF8
+        Write-Host "📄 Reporte guardado en: $reportPath" -ForegroundColor Green
+        Write-Host "   (Encontrarás el archivo en tu escritorio)" -ForegroundColor DarkGray
+        return $true
+    } catch {
+        Write-Host "⚠️  No se pudo guardar el reporte" -ForegroundColor Yellow
+        return $false
+    }
+}
+
+# =====================================================================
+# [FASE 0-B] Análisis de optimizaciones necesarias
+# =====================================================================
+Write-Host ""
+Write-Host "[PLAN] Analizando optimizaciones recomendadas" -ForegroundColor Magenta
+Write-Host ("─" * 70) -ForegroundColor DarkGray
+
 $dangerousTweaks = @(
-    @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name="DisablePagingExecutive"; Reason="PELIGROSO en <16GB RAM"}
-    @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name="LargeSystemCache"; Reason="MALO para estaciones de trabajo"}
+    @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name="DisablePagingExecutive"; Reason="PELIGROSO con menos de 16GB RAM"}
+    @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name="LargeSystemCache"; Reason="INAPROPIADO para estaciones de trabajo"}
     @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name="ClearPageFileAtShutdown"; Reason="Lento e innecesario"}
     @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name="SecondLevelDataCache"; Reason="Windows detecta automáticamente"}
-    @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name="IoPageLockLimit"; Reason="Causa inestabilidad"}
-    @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl"; Name="Win32PrioritySeparation"; Reason="Valor DUPLICADO"}
+    @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name="IoPageLockLimit"; Reason="Puede causar inestabilidad"}
+    @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl"; Name="Win32PrioritySeparation"; Reason="Valor duplicado"}
 )
 
-# Configuración de CPU Priority Matrix (necesario para análisis)
 $CPUPriorityMatrix = @{
     "ENTUSIASTA" = @{Conservative=24; Balanced=36; Aggressive=48}
     "EQUILIBRADO" = @{Conservative=20; Balanced=28; Aggressive=36}
@@ -368,40 +729,58 @@ $CPUPriorityMatrix = @{
     "LIVIANO" = @{Conservative=12; Balanced=18; Aggressive=24}
 }
 
-# Determinar hardware profile (simplificado para análisis)
-if ($totalRAM -ge 32 -and $SystemProfile.CPU.Cores -ge 8) {
+$ramGB = $SystemProfileDetallado.RAM.TotalGB
+$cpuCores = $SystemProfileDetallado.CPU.Cores
+
+if ($ramGB -ge 32 -and $cpuCores -ge 8) {
     $HardwareProfile = "ENTUSIASTA"
-} elseif ($totalRAM -ge 16 -and $SystemProfile.CPU.Cores -ge 6) {
+} elseif ($ramGB -ge 16 -and $cpuCores -ge 6) {
     $HardwareProfile = "EQUILIBRADO"
-} elseif ($totalRAM -ge 8 -and $SystemProfile.CPU.Cores -ge 4) {
+} elseif ($ramGB -ge 8 -and $cpuCores -ge 4) {
     $HardwareProfile = "ESTÁNDAR"
 } else {
     $HardwareProfile = "LIVIANO"
 }
 
-$CPUValue = $CPUPriorityMatrix[$HardwareProfile][$SystemProfile.Strategy]
+$risk = 0
+if ($SystemProfileDetallado.Platform.IsLaptop) { $risk += 1 }
+if ($ramGB -lt 4) { $risk += 2 }
+if ($SystemProfileDetallado.Storage.BottleneckRisk -eq "Alto") { $risk += 1 }
 
-# Análisis de optimizaciones necesarias
+if ($risk -ge 3) {
+    $SystemProfileStrategy = "Conservative"
+    $SystemProfileRiskLevel = "Alto"
+} elseif ($risk -eq 2) {
+    $SystemProfileStrategy = "Balanced"
+    $SystemProfileRiskLevel = "Medio"
+} else {
+    $SystemProfileStrategy = "Aggressive"
+    $SystemProfileRiskLevel = "Bajo"
+}
+
+$CPUValue = $CPUPriorityMatrix[$HardwareProfile][$SystemProfileStrategy]
+
 $OptimizationPlan = @()
 
-# 1. POWER PLAN
-$powerPlanNeeded = $true
-$powerPlanReason = if ($SystemProfile.Platform.IsLaptop) {
-    "Laptop detectado: Ajustaremos energía para equilibrio rendimiento/batería"
+$cpuGen = $SystemProfileDetallado.CPU.Generation
+$powerPlanReason = "Procesador detectado: $cpuGen"
+if ($cpuGen -like "*1ra Generación*" -or $cpuGen -like "*2da Generación*") {
+    $powerPlanAction = "Power Plan: Equilibrado"
+} elseif ($cpuGen -like "*Ryzen*") {
+    $powerPlanAction = "Power Plan: Ryzen Balanced"
 } else {
-    "Desktop: Configuraremos máximo rendimiento estable"
-}
-$powerPlanImpact = "Hasta 15% mejor rendimiento en apps pesadas"
-$OptimizationPlan += @{
-    Fase = 2
-    Nombre = "Power Plan Contextual"
-    Accion = "Configurar plan: $HardwareProfile"
-    Necesario = $powerPlanNeeded
-    Razon = $powerPlanReason
-    Impacto = $powerPlanImpact
+    $powerPlanAction = "Power Plan: $HardwareProfile"
 }
 
-# 2. MEMORIA PELIGROSA
+$OptimizationPlan += @{
+    Fase = 2
+    Nombre = "Plan de Energía"
+    Accion = $powerPlanAction
+    Necesario = $true
+    Razon = $powerPlanReason
+    Impacto = "Rendimiento adaptado a tu procesador"
+}
+
 $dangerTweaks = @()
 foreach ($tweak in $dangerousTweaks) {
     if (Test-Path $tweak.Path) {
@@ -411,153 +790,132 @@ foreach ($tweak in $dangerousTweaks) {
 }
 $memoryNeeded = ($dangerTweaks.Count -gt 0)
 $memoryReason = if ($dangerTweaks.Count -gt 0) {
-    "$($dangerTweaks.Count) ajustes peligrosos detectados (pueden causar inestabilidad)"
+    "$($dangerTweaks.Count) ajustes peligrosos detectados"
 } else {
     "Configuración de memoria ya es segura"
 }
-$memoryImpact = if ($dangerTweaks.Count -gt 0) {
-    "Mayor estabilidad del sistema"
-} else {
-    "Sin cambios (ya está óptimo)"
-}
 $OptimizationPlan += @{
     Fase = 3
-    Nombre = "Configuración Segura de Memoria"
-    Accion = if ($dangerTweaks.Count -gt 0) { "Eliminar $($dangerTweaks.Count) ajustes riesgosos" } else { "Verificar configuración" }
+    Nombre = "Configuración de Memoria"
+    Accion = if ($dangerTweaks.Count -gt 0) { "Eliminar $($dangerTweaks.Count) ajustes" } else { "Verificar" }
     Necesario = $memoryNeeded
     Razon = $memoryReason
-    Impacto = $memoryImpact
+    Impacto = "Mayor estabilidad"
 }
 
-# 3. RED INTELIGENTE
 $networkNeeded = $true
-$networkReason = switch ($SystemProfile.Network.PrimaryType) {
-    "WiFi" { "WiFi detectado: Optimizaremos para estabilidad y menor latencia" }
-    "Ethernet" { "Ethernet detectado: Configuraremos para máximo throughput" }
-    default { "Red: Aplicaremos ajustes generales de estabilidad" }
+$networkReason = "Optimización adaptada a tu conexión"
+if ($SystemProfileDetallado.Network.HasProxy) {
+    $networkReason += " (con proxy detectado)"
 }
-if ($SystemProfile.Network.Vendor -eq "Killer") {
-    $networkReason += " (Adaptador Killer: ajustes especiales para gaming)"
-}
-$networkImpact = "Conexión más estable y menor ping en gaming"
 $OptimizationPlan += @{
     Fase = 4
-    Nombre = "Optimización Inteligente de Red"
-    Accion = "Ajustar TCP y adaptador $($SystemProfile.Network.Vendor)"
+    Nombre = "Optimización de Red"
+    Accion = "Ajustar TCP"
     Necesario = $networkNeeded
     Razon = $networkReason
-    Impacto = $networkImpact
+    Impacto = "Conexión más estable"
 }
 
-# 4. PRIORIDAD CPU
 $cpuPriorityNeeded = $true
-$cpuPriorityReason = "Balancearemos prioridades según tu perfil ($HardwareProfile/$($SystemProfile.Strategy))"
-$cpuPriorityImpact = "Mejor multitarea y respuesta de aplicaciones"
+$cpuPriorityReason = "Balance según perfil ($HardwareProfile/$SystemProfileStrategy)"
 $OptimizationPlan += @{
     Fase = 5
-    Nombre = "Balance de Prioridades CPU"
+    Nombre = "Prioridades CPU"
     Accion = "Configurar valor: $CPUValue"
     Necesario = $cpuPriorityNeeded
     Razon = $cpuPriorityReason
-    Impacto = $cpuPriorityImpact
+    Impacto = "Mejor multitarea"
 }
 
-# 5. ALMACENAMIENTO
-$storageNeeded = $true
-$storageReason = switch ($SystemProfile.Storage.SystemDiskType) {
-    "NVMe" { "NVMe detectado: Optimizaremos TRIM y write caching" }
-    "SSD" { "SSD detectado: Ajustaremos para mayor vida útil" }
-    "HDD" { "HDD detectado: Configuraremos prefetch para mejor velocidad" }
-    default { "Almacenamiento: Aplicaremos ajustes generales" }
-}
-$storageImpact = switch ($SystemProfile.Storage.SystemDiskType) {
-    "NVMe" { "Máximo rendimiento SSD NVMe" }
-    "SSD" { "SSD más rápido y durable" }
-    "HDD" { "HDD más responsivo" }
-    default { "Optimización general" }
-}
-$OptimizationPlan += @{
-    Fase = 6
-    Nombre = "Optimización de Almacenamiento"
-    Accion = "Configurar para $($SystemProfile.Storage.SystemDiskType)"
-    Necesario = $storageNeeded
-    Razon = $storageReason
-    Impacto = $storageImpact
+$mainStorage = $SystemProfileDetallado.Storage.Drives | Select-Object -First 1
+if ($mainStorage) {
+    $storageType = if ($mainStorage.MediaType -eq "SSD") {
+        if ($mainStorage.SSDType -eq "NVMe") { "NVMe" } else { "SSD SATA" }
+    } else { "HDD" }
+    
+    $storageReason = "Optimización para $storageType"
+    $storageImpact = if ($storageType -eq "NVMe") { "Máximo rendimiento" }
+                     elseif ($storageType -eq "SSD SATA") { "SSD más rápido" }
+                     else { "HDD más responsivo" }
+    
+    $OptimizationPlan += @{
+        Fase = 6
+        Nombre = "Almacenamiento"
+        Accion = "Configurar para $storageType"
+        Necesario = $true
+        Razon = $storageReason
+        Impacto = $storageImpact
+    }
 }
 
-# 6. RETRASOS UI
-$recommendedDelay = switch ($SystemProfile.Storage.SystemDiskType) {
-    "NVMe" { 0 }
-    "SSD"  { 50 }
-    "HDD"  { 200 }
-    default { 100 }
-}
-$uiDelaysNeeded = $true
-$uiDelaysReason = "Ajustaremos animaciones y retrasos para $($SystemProfile.Storage.SystemDiskType)"
-$uiDelaysImpact = "Interfaz más fluida y responsiva"
-$OptimizationPlan += @{
-    Fase = 7
-    Nombre = "Optimización de Interfaz"
-    Accion = "Ajustar retrasos UI: ${recommendedDelay}ms"
-    Necesario = $uiDelaysNeeded
-    Razon = $uiDelaysReason
-    Impacto = $uiDelaysImpact
+if ($mainStorage) {
+    $recommendedDelay = if ($mainStorage.MediaType -eq "SSD" -and $mainStorage.SSDType -eq "NVMe") { 0 }
+                       elseif ($mainStorage.MediaType -eq "SSD") { 50 }
+                       else { 200 }
+    
+    $OptimizationPlan += @{
+        Fase = 7
+        Nombre = "Interfaz"
+        Accion = "Retrasos UI: ${recommendedDelay}ms"
+        Necesario = $true
+        Razon = "Animaciones optimizadas para $storageType"
+        Impacto = "Interfaz más fluida"
+    }
 }
 
-# 7. HOTFIXES
 $hotfixesNeeded = $true
-$hotfixesReason = "Aplicaremos soluciones rápidas para problemas comunes"
-$hotfixesImpact = "Sistema más estable y actualizado"
+$hotfixReason = "Soluciones específicas para tu configuración"
+if ($ramGB -lt 4) { $hotfixReason += " (RAM baja)" }
+if ($SystemProfileDetallado.Storage.BottleneckRisk -eq "Alto") { $hotfixReason += " (HDD lento)" }
+if ($SystemProfileDetallado.Network.HasProxy) { $hotfixReason += " (Proxy detectado)" }
+
 $OptimizationPlan += @{
     Fase = "Hotfixes"
-    Nombre = "Soluciones Rápidas"
-    Accion = "Aplicar hotfixes detectados"
+    Nombre = "Ajustes Rápidos"
+    Accion = "Aplicar ajustes detectados"
     Necesario = $hotfixesNeeded
-    Razon = $hotfixesReason
-    Impacto = $hotfixesImpact
+    Razon = $hotfixReason
+    Impacto = "Sistema más estable"
 }
 
-# MOSTRAR PLAN COMPLETO
-Write-Host "📋 PLAN DE OPTIMIZACIÓN DETALLADO" -ForegroundColor Cyan
-Write-Host "──────────────────────────────────────────────────────" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "📋 PLAN DE OPTIMIZACIÓN" -ForegroundColor Cyan
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
 $totalOptimizations = $OptimizationPlan.Count
 $neededOptimizations = ($OptimizationPlan | Where-Object { $_.Necesario }).Count
 
 Write-Host "🔍 RESUMEN:" -ForegroundColor Yellow
+Write-Host "  • Perfil de Hardware: $HardwareProfile" -ForegroundColor DarkGray
+Write-Host "  • Estrategia: $SystemProfileStrategy" -ForegroundColor DarkGray
 Write-Host "  • Optimizaciones detectadas: $totalOptimizations" -ForegroundColor DarkGray
-Write-Host "  • Optimizaciones necesarias: $neededOptimizations" -ForegroundColor DarkGray
-Write-Host "  • Optimizaciones opcionales: $($totalOptimizations - $neededOptimizations)" -ForegroundColor DarkGray
+Write-Host "  • Optimizaciones recomendadas: $neededOptimizations" -ForegroundColor DarkGray
 Write-Host ""
 
-Write-Host "📝 DETALLE POR FASE:" -ForegroundColor Yellow
 foreach ($phase in $OptimizationPlan | Sort-Object { if ($_.Fase -is [int]) { $_.Fase } else { 99 } }) {
     $phaseColor = if ($phase.Necesario) { "Green" } else { "DarkGray" }
     $checkmark = if ($phase.Necesario) { "✓" } else { "○" }
-    $statusText = if ($phase.Necesario) { "NECESARIO" } else { "OPCIONAL" }
     
     Write-Host "  $checkmark [$($phase.Fase)] $($phase.Nombre)" -ForegroundColor $phaseColor
-    Write-Host "     • Estado: $statusText" -ForegroundColor $(if($phase.Necesario){"Yellow"}else{"DarkGray"})
     Write-Host "     • Acción: $($phase.Accion)" -ForegroundColor DarkGray
     if ($phase.Necesario) {
         Write-Host "     • Razón: $($phase.Razon)" -ForegroundColor DarkGray
-        Write-Host "     • Impacto: $($phase.Impacto)" -ForegroundColor DarkGray
     }
     Write-Host ""
 }
 
-# PREGUNTAR SI CONTINUAR
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "🎯 OPCIONES DE OPTIMIZACIÓN" -ForegroundColor Yellow
-Write-Host "──────────────────────────────────────────────────────" -ForegroundColor DarkGray
-Write-Host "  1️⃣  OPTIMIZACIÓN COMPLETA (recomendado)" -ForegroundColor Green
-Write-Host "     → Ejecuta todas las $neededOptimizations optimizaciones necesarias" -ForegroundColor DarkGray
+Write-Host ("─" * 70) -ForegroundColor DarkGray
+Write-Host "  1️⃣  OPTIMIZACIÓN COMPLETA" -ForegroundColor Green
+Write-Host "     → Aplica las $neededOptimizations optimizaciones recomendadas" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  2️⃣  OPTIMIZACIÓN SELECTIVA" -ForegroundColor Yellow
 Write-Host "     → Elige qué optimizaciones aplicar" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "  3️⃣  MODO SEGURO (solo análisis)" -ForegroundColor Magenta
-Write-Host "     → Solo muestra recomendaciones, no aplica cambios" -ForegroundColor DarkGray
+Write-Host "  3️⃣  MODO SEGURO" -ForegroundColor Magenta
+Write-Host "     → Solo muestra recomendaciones" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  4️⃣  SALIR" -ForegroundColor Red
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
@@ -565,7 +923,6 @@ Write-Host ""
 
 $opcion = Read-Host "Selecciona una opción (1-4)"
 
-# Inicializar variables que se usarán más tarde
 $selectedOptimizations = @()
 $GlobalConfig.SafeMode = $false
 
@@ -573,14 +930,14 @@ switch ($opcion) {
     "1" {
         Write-Host ""
         Write-Host "🚀 OPTIMIZACIÓN COMPLETA ACTIVADA" -ForegroundColor Green
-        Write-Host "Aplicando todas las $neededOptimizations optimizaciones necesarias..." -ForegroundColor DarkGray
+        Write-Host "Aplicando las $neededOptimizations optimizaciones..." -ForegroundColor DarkGray
         $GlobalConfig.SafeMode = $false
         $selectedOptimizations = $OptimizationPlan | Where-Object { $_.Necesario }
     }
     "2" {
         Write-Host ""
         Write-Host "🔄 OPTIMIZACIÓN SELECTIVA" -ForegroundColor Yellow
-        Write-Host "──────────────────────────────────────────────────────" -ForegroundColor DarkGray
+        Write-Host ("─" * 70) -ForegroundColor DarkGray
         
         foreach ($phase in $OptimizationPlan | Where-Object { $_.Necesario } | Sort-Object { if ($_.Fase -is [int]) { $_.Fase } else { 99 } }) {
             $default = "S"
@@ -596,10 +953,10 @@ switch ($opcion) {
         
         if ($selectedOptimizations.Count -eq 0) {
             Write-Host "⚠️  No seleccionaste ninguna optimización." -ForegroundColor Yellow
-            Write-Host "   Ejecutando en modo seguro (solo análisis)..." -ForegroundColor Yellow
+            Write-Host "   Ejecutando en modo seguro..." -ForegroundColor Yellow
             $GlobalConfig.SafeMode = $true
         } else {
-            Write-Host "✅ Seleccionaste $($selectedOptimizations.Count) optimizaciones:" -ForegroundColor Green
+            Write-Host "✅ Seleccionaste $($selectedOptimizations.Count) optimizaciones" -ForegroundColor Green
             $selectedOptimizations | ForEach-Object { Write-Host "  • [$($_.Fase)] $($_.Nombre)" -ForegroundColor DarkGray }
             Write-Host ""
             $GlobalConfig.SafeMode = $false
@@ -608,20 +965,20 @@ switch ($opcion) {
     "3" {
         Write-Host ""
         Write-Host "🛡️  MODO SEGURO ACTIVADO" -ForegroundColor Yellow
-        Write-Host "Solo se mostrarán recomendaciones, no se aplicarán cambios." -ForegroundColor DarkGray
+        Write-Host "Solo se mostrarán recomendaciones." -ForegroundColor DarkGray
         $GlobalConfig.SafeMode = $true
         $selectedOptimizations = @()
     }
     "4" {
         Write-Host ""
         Write-Host "👋 Saliendo de Windows de Mente v1.0" -ForegroundColor Cyan
-        Write-Host "Gracias por usar nuestra herramienta de optimización consciente." -ForegroundColor DarkGray
+        Write-Host "Gracias por usar nuestra herramienta." -ForegroundColor DarkGray
         exit 0
     }
     default {
         Write-Host ""
-        Write-Host "⚠️  Opción no válida. Ejecutando Optimización Completa por defecto." -ForegroundColor Yellow
-        Write-Host "Aplicando todas las $neededOptimizations optimizaciones necesarias..." -ForegroundColor DarkGray
+        Write-Host "⚠️  Opción no válida. Ejecutando Optimización Completa." -ForegroundColor Yellow
+        Write-Host "Aplicando las $neededOptimizations optimizaciones..." -ForegroundColor DarkGray
         $GlobalConfig.SafeMode = $false
         $selectedOptimizations = $OptimizationPlan | Where-Object { $_.Necesario }
     }
@@ -633,65 +990,80 @@ Write-Host "   INICIANDO OPTIMIZACIÓN..." -ForegroundColor Yellow
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "Iniciando optimización..." -PercentComplete 10
-
 # =====================================================================
-# ANÁLISIS DE SALUD DEL SISTEMA (NUEVO)
+# ACTUALIZAR VARIABLES GLOBALES
 # =====================================================================
-Write-Host "[ANÁLISIS] Estado sanitario del sistema" -ForegroundColor Magenta
-Write-Host "─" * 70 -ForegroundColor DarkGray
+$totalRAM = $SystemProfileDetallado.RAM.TotalGB
 
-$systemHealth = @{
-    Estado = "OK"
-    Problemas = @()
-    Recomendaciones = @()
+$SystemProfile = @{
+    CPU = @{
+        Vendor = "Unknown"
+        Cores = 0
+        Threads = 0
+        Modern = $false
+        Hybrid = $false
+    }
+    GPU = @{
+        Type = "Unknown"
+        Vendor = "Unknown"
+    }
+    Storage = @{
+        SystemDiskType = "Unknown"
+    }
+    RiskLevel = "Medium"
+    Strategy = "Balanced"
+    Platform = @{
+        IsLaptop = $SystemProfileDetallado.Platform.IsLaptop
+        HasBattery = $SystemProfileDetallado.Platform.HasBattery
+    }
 }
 
-try {
-    $systemDrive = (Get-CimInstance Win32_OperatingSystem).SystemDrive
-    $drive = Get-PSDrive $systemDrive.Replace(':', '') -ErrorAction SilentlyContinue
-    if ($drive) {
-        $freePercent = ($drive.Free / $drive.Used) * 100
-        if ($freePercent -lt 10) {
-            $systemHealth.Estado = "CRÍTICO"
-            $systemHealth.Problemas += "Disco sistema con menos del 10% libre ($([math]::Round($freePercent,1))%)"
-            $systemHealth.Recomendaciones += "Liberar espacio en $systemDrive"
-        } elseif ($freePercent -lt 20) {
-            $systemHealth.Estado = "ADVERTENCIA"
-            $systemHealth.Problemas += "Disco sistema con menos del 20% libre ($([math]::Round($freePercent,1))%)"
+$SystemProfile.CPU.Cores = $SystemProfileDetallado.CPU.Cores
+$SystemProfile.CPU.Threads = $SystemProfileDetallado.CPU.Threads
+$SystemProfile.RiskLevel = $SystemProfileRiskLevel
+$SystemProfile.Strategy = $SystemProfileStrategy
+
+if ($mainStorage) {
+    if ($mainStorage.MediaType -eq "SSD") {
+        if ($mainStorage.SSDType -eq "NVMe") {
+            $SystemProfile.Storage.SystemDiskType = "NVMe"
+        } else {
+            $SystemProfile.Storage.SystemDiskType = "SSD"
         }
-    }
-} catch {}
-
-try {
-    $errors = Get-EventLog -LogName System -EntryType Error -After (Get-Date).AddDays(-1) -ErrorAction SilentlyContinue
-    if ($errors.Count -gt 5) {
-        $systemHealth.Problemas += "$($errors.Count) errores de sistema en últimas 24h"
-        $systemHealth.Recomendaciones += "Revisar Visor de Eventos"
-    }
-} catch {}
-
-switch ($systemHealth.Estado) {
-    "OK" { Write-Host "  ✅ Sistema: Estado óptimo" -ForegroundColor Green }
-    "ADVERTENCIA" { 
-        Write-Host "  ⚠️  Sistema: Atención requerida" -ForegroundColor Yellow
-        $systemHealth.Problemas | ForEach-Object { Write-Host "    • $_" -ForegroundColor Yellow }
-    }
-    "CRÍTICO" { 
-        Write-Host "  ❗ Sistema: Estado crítico" -ForegroundColor Red
-        $systemHealth.Problemas | ForEach-Object { Write-Host "    • $_" -ForegroundColor Red }
-        $systemHealth.Recomendaciones | ForEach-Object { Write-Host "    ▶ $_" -ForegroundColor Cyan }
+    } else {
+        $SystemProfile.Storage.SystemDiskType = "HDD"
     }
 }
+
+if ($SystemProfileDetallado.CPU.Modelo -match "Intel") {
+    $SystemProfile.CPU.Vendor = "Intel"
+} elseif ($SystemProfileDetallado.CPU.Modelo -match "AMD|Ryzen") {
+    $SystemProfile.CPU.Vendor = "AMD"
+}
+
+$SystemProfile.CPU.Modern = $false
+if ($SystemProfileDetallado.CPU.Generation -like "*10ma*" -or 
+    $SystemProfileDetallado.CPU.Generation -like "*11va*" -or 
+    $SystemProfileDetallado.CPU.Generation -like "*12va*" -or
+    $SystemProfileDetallado.CPU.Generation -like "*13va*" -or
+    $SystemProfileDetallado.CPU.Generation -like "*14va*" -or
+    $SystemProfileDetallado.CPU.Generation -like "*Ryzen*") {
+    $SystemProfile.CPU.Modern = $true
+}
+
+if ($SystemProfileDetallado.GPU.Count -gt 0) {
+    $SystemProfile.GPU.Vendor = $SystemProfileDetallado.GPU[0].Vendor
+    $SystemProfile.GPU.Type = if ($SystemProfileDetallado.GPU[0].Type -eq "Dedicada") { "Dedicated" } else { "Integrated" }
+}
+
+Write-Host "✅ Sistema analizado y listo para optimización" -ForegroundColor Green
 Write-Host ""
 
 # =====================================================================
-# [FASE 1] Evaluación contextual de capacidades
+# [FASE 1] Evaluación contextual
 # =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 1: Evaluando capacidades..." -PercentComplete 15
-
 Write-Host "[FASE 1] Evaluación contextual de capacidades" -ForegroundColor Yellow
-Write-Host "─" * 70 -ForegroundColor DarkGray
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
 $ProfileScore = 0
 $ScoreDetails = @()
@@ -720,13 +1092,7 @@ $cpuModernBonus = if ($SystemProfile.CPU.Modern) {
     0 
 }
 
-$cpuHybridBonus = if ($SystemProfile.CPU.Hybrid) { 
-    10; $ScoreDetails += "CPU Híbrida: +10" 
-} else { 
-    0 
-}
-
-$cpuScore = $cpuBaseScore + $cpuModernBonus + $cpuHybridBonus
+$cpuScore = $cpuBaseScore + $cpuModernBonus
 $ProfileScore += $cpuScore
 
 $systemDiskType = $SystemProfile.Storage.SystemDiskType
@@ -741,7 +1107,6 @@ $ProfileScore += $storageScore
 $gpuScore = 0
 switch ($SystemProfile.GPU.Type) {
     "Dedicated" { $gpuScore = 25; $ScoreDetails += "GPU Dedicada: +25" }
-    "Hybrid"    { $gpuScore = 20; $ScoreDetails += "GPU Híbrida: +20" }
     "Integrated"{ $gpuScore = 10; $ScoreDetails += "GPU Integrada: +10" }
     default     { $gpuScore = 5;  $ScoreDetails += "GPU: +5" }
 }
@@ -772,28 +1137,25 @@ if ($ProfileScore -ge 120) {
     $HardwareProfile = "LIVIANO"
 }
 
-# =====================================================================
-# SISTEMA DE PUNTUACIÓN CONTEXTUAL (NUEVO)
-# =====================================================================
 $categoryLimits = @{
     "ENTUSIASTA" = @{
         MaxScore = 150
-        Description = "Hardware de gama alta (i9/Ryzen 9, 32GB+ RAM, NVMe)"
+        Description = "Hardware de gama alta"
         TargetScore = 120
     }
     "EQUILIBRADO" = @{
         MaxScore = 120
-        Description = "Hardware moderno medio (i5/Ryzen 5, 16GB RAM, SSD)"
+        Description = "Hardware moderno medio"
         TargetScore = 95
     }
     "ESTÁNDAR" = @{
         MaxScore = 100
-        Description = "Hardware común (i3/Ryzen 3, 8GB RAM, HDD/SSD)"
+        Description = "Hardware común"
         TargetScore = 80
     }
     "LIVIANO" = @{
         MaxScore = 80
-        Description = "Hardware limitado o antiguo (Atom/Celeron, <4GB RAM, HDD)"
+        Description = "Hardware limitado"
         TargetScore = 65
     }
 }
@@ -817,42 +1179,22 @@ Write-Host "  • CPU: $($SystemProfile.CPU.Vendor) $($SystemProfile.CPU.Cores)c
 Write-Host "  • GPU: $($SystemProfile.GPU.Type) - $($SystemProfile.GPU.Vendor)" -ForegroundColor DarkGray
 Write-Host "  • Almacenamiento: $systemDiskType" -ForegroundColor DarkGray
 
-Write-Host "`n🎯 PUNTUACIÓN INTEGRADA:" -ForegroundColor Cyan
-foreach ($detail in $ScoreDetails) {
-    if ($detail -match ":\s*-\d+") {
-        Write-Host "  • $detail" -ForegroundColor DarkRed
-    } elseif ($detail -match ":\s*\+\d+") {
-        Write-Host "  • $detail" -ForegroundColor DarkGreen
-    } else {
-        Write-Host "  • $detail" -ForegroundColor DarkGray
-    }
-}
-
-Write-Host ""
-Write-Host "🏷️  PERFIL DETERMINADO:" -ForegroundColor Cyan
+Write-Host "`n🎯 PUNTUACIÓN:" -ForegroundColor Cyan
+Write-Host "  • Puntuación total: $ProfileScore puntos" -ForegroundColor DarkGray
 Write-Host "  • Nivel Hardware: $HardwareProfile" -ForegroundColor DarkGray
 Write-Host "  • Estrategia: $($SystemProfile.Strategy)" -ForegroundColor DarkGray
-Write-Host "  • Riesgo: $($SystemProfile.RiskLevel)" -ForegroundColor $(switch($SystemProfile.RiskLevel){"High"{'Red'}"Medium"{'Yellow'}default{'Green'}})
-Write-Host "  • Puntuación total: $ProfileScore puntos" -ForegroundColor DarkGray
-
-Write-Host "`n💡 RENDIMIENTO RELATIVO:" -ForegroundColor Cyan
-Write-Host "  • Categoría: $HardwareProfile" -ForegroundColor DarkGray
-Write-Host "  • $($categoryInfo.Description)" -ForegroundColor DarkGray
-Write-Host "  • Tu puntuación: $ProfileScore/$($categoryInfo.MaxScore)" -ForegroundColor DarkGray
 Write-Host "  • Rendimiento: $relativeScore% del óptimo para tu hardware" -ForegroundColor $(switch($relativeScore){ {$_ -ge 85}{'Green'} {$_ -ge 70}{'Yellow'} default{'Red'}})
 
 Write-Host "✔ Evaluación contextual completada" -ForegroundColor Green
 Write-Host ""
 
 # =====================================================================
-# [FASE 2] POWER PLAN CONTEXTUAL
+# [FASE 2] Power Plan
 # =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 2: Configurando Power Plan..." -PercentComplete 20
+Write-Host "[FASE 2] Configuración de Power Plan" -ForegroundColor Yellow
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
-Write-Host "[FASE 2] Configuración de Power Plan contextual" -ForegroundColor Yellow
-Write-Host "─" * 70 -ForegroundColor DarkGray
-
-Write-Host "  » Aplicando plan de energía según perfil..." -ForegroundColor DarkGray
+Write-Host "  » Aplicando plan de energía..." -ForegroundColor DarkGray
 Write-Host ""
 
 try {
@@ -862,7 +1204,6 @@ try {
     Write-Host "  ⚠️  No se pudo determinar esquema actual" -ForegroundColor Yellow
 }
 
-# Verificar si esta optimización fue seleccionada
 $shouldRunPhase2 = if ($opcion -eq "2") {
     ($selectedOptimizations | Where-Object { $_.Fase -eq 2 }).Count -gt 0
 } else {
@@ -874,8 +1215,7 @@ if ($shouldRunPhase2 -and -not $GlobalConfig.SafeMode) {
         switch ($HardwareProfile) {
             "LIVIANO" {
                 powercfg /setactive SCHEME_MIN 2>&1 | Out-Null
-                Write-Host "  • Power Plan: Alto Rendimiento (fijo)" -ForegroundColor Green
-                Write-Host "    CPU siempre al 100% para hardware limitado" -ForegroundColor DarkGray
+                Write-Host "  • Power Plan: Alto Rendimiento" -ForegroundColor Green
             }
             "ENTUSIASTA" {
                 $ultimateResult = powercfg /duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>&1
@@ -886,12 +1226,10 @@ if ($shouldRunPhase2 -and -not $GlobalConfig.SafeMode) {
                     powercfg /setactive e9a42b02-d5df-448d-aa00-03f14749eb61 2>&1 | Out-Null
                     Write-Host "  • Power Plan: Ultimate Performance" -ForegroundColor Green
                 }
-                Write-Host "    Máximo rendimiento para workloads pesados" -ForegroundColor DarkGray
             }
             default {
                 powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e 2>&1 | Out-Null
                 Write-Host "  • Power Plan: Equilibrado" -ForegroundColor Green
-                Write-Host "    Balance óptimo rendimiento/eficiencia" -ForegroundColor DarkGray
             }
         }
 
@@ -921,92 +1259,97 @@ Write-Host "✔ Configuración de Power Plan completada" -ForegroundColor Green
 Write-Host ""
 
 # =====================================================================
-# HOTFIXES CONTEXTUALES (NUEVO)
+# [FASE 3] Optimización de memoria basada en hardware
 # =====================================================================
-Write-Host "[HOTFIXES] Soluciones para problemas comunes" -ForegroundColor Magenta
-Write-Host "─" * 70 -ForegroundColor DarkGray
+Write-Host "[FASE 3] Optimización de memoria" -ForegroundColor Yellow
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
-# Verificar si esta optimización fue seleccionada
-$shouldRunHotfixes = if ($opcion -eq "2") {
-    ($selectedOptimizations | Where-Object { $_.Fase -eq "Hotfixes" }).Count -gt 0
-} else {
-    $true
-}
-
-$hotfixesApplied = @()
-
-if ($shouldRunHotfixes -and -not $GlobalConfig.SafeMode) {
-    try {
-        $wuService = Get-Service -Name wuauserv -ErrorAction SilentlyContinue
-        if ($wuService.Status -ne "Running") {
-            Start-Service wuauserv -ErrorAction SilentlyContinue
-            $hotfixesApplied += "Servicio Windows Update reactivado"
-        }
-    } catch {}
-
-    try {
-        ipconfig /flushdns 2>&1 | Out-Null
-        ipconfig /registerdns 2>&1 | Out-Null
-        $hotfixesApplied += "Cache DNS limpiada y renovada"
-    } catch {}
-
-    if ($SystemProfile.Storage.SystemDiskType -eq "HDD" -and $totalRAM -lt 8) {
-        try {
-            $prefetchPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"
-            Set-ItemProperty -Path $prefetchPath -Name EnablePrefetcher -Value 3 -ErrorAction SilentlyContinue
-            Set-ItemProperty -Path $prefetchPath -Name EnableSuperfetch -Value 3 -ErrorAction SilentlyContinue
-            $hotfixesApplied += "Prefetch/SuperFetch optimizado para HDD con poca RAM"
-        } catch {}
-    }
-
-    if ($hotfixesApplied.Count -gt 0) {
-        Write-Host "  🔧 Hotfixes aplicados:" -ForegroundColor Cyan
-        $hotfixesApplied | ForEach-Object { Write-Host "    • $_" -ForegroundColor Green }
-    } else {
-        Write-Host "  ✅ No se requirieron hotfixes inmediatos" -ForegroundColor Green
-    }
-} else {
-    Write-Host "  • [OMITIDO] Hotfixes contextuales" -ForegroundColor DarkGray
-}
-Write-Host ""
-
-# =====================================================================
-# [FASE 3] Configuración contextual de memoria
-# =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 3: Optimizando memoria..." -PercentComplete 30
-
-Write-Host "[FASE 3] Configuración contextual de memoria" -ForegroundColor Yellow
-Write-Host "─" * 70 -ForegroundColor DarkGray
-
-# Verificar si esta optimización fue seleccionada
 $shouldRunPhase3 = if ($opcion -eq "2") {
     ($selectedOptimizations | Where-Object { $_.Fase -eq 3 }).Count -gt 0
 } else {
     $true
 }
 
-if ($shouldRunPhase3) {
-    Write-Host "  » Eliminando configuraciones peligrosas..." -ForegroundColor DarkGray
+$tweaksCorregidos = 0
+$tweaksAjustados = 0
 
-    $tweaksRemoved = 0
-    foreach ($tweak in $dangerousTweaks) {
+if ($shouldRunPhase3) {
+    Write-Host "  » Aplicando ajustes específicos para tu hardware..." -ForegroundColor DarkGray
+    Write-Host ""
+
+    # TWEAKS SIEMPRE PELIGROSOS
+    $alwaysBadTweaks = @(
+        @{
+            Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+            Name="DisablePagingExecutive"
+            Accion="ELIMINAR"
+        },
+        @{
+            Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+            Name="IoPageLockLimit"
+            Accion="ELIMINAR"
+        },
+        @{
+            Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+            Name="PagedPoolSize"
+            Accion="ELIMINAR"
+        }
+    )
+
+    # TWEAKS CONDICIONALES BASADOS EN HARDWARE
+    $conditionalTweaks = @()
+
+    if ($esHDD) {
+        Write-Host "  💾 HDD detectado: optimizando para disco mecánico..." -ForegroundColor Cyan
+        $conditionalTweaks += @{
+            Path="HKLM:\SYSTEM\CurrentControlSet\Services\SysMain"
+            Name="Start"
+            Valor=3
+            Razon="SuperFetch beneficioso para HDD"
+        }
+    } elseif ($esSSD) {
+        Write-Host "  💿 SSD detectado: optimizando para almacenamiento flash..." -ForegroundColor Cyan
+    }
+
+    if ($ramGB -lt 8) {
+        Write-Host "  📉 RAM baja detectada: optimizando uso de memoria..." -ForegroundColor Yellow
+        $conditionalTweaks += @{
+            Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer"
+            Name="AlwaysUnloadDLL"
+            Valor=1
+            Razon="Liberar RAM en sistemas con poca memoria"
+        }
+    } elseif ($ramGB -ge 32) {
+        Write-Host "  📈 RAM abundante detectada: ajustando para alto rendimiento..." -ForegroundColor Green
+    }
+
+    # EJECUTAR CORRECCIONES
+    foreach ($tweak in $alwaysBadTweaks) {
         if (Test-Path $tweak.Path) {
-            $prop = Get-ItemProperty -Path $tweak.Path -Name $tweak.Name -ErrorAction SilentlyContinue
-            if ($prop) {
-                try {
-                    Remove-ItemProperty -Path $tweak.Path -Name $tweak.Name -ErrorAction Stop
-                    $tweaksRemoved++
-                } catch {}
+            $existe = Get-ItemProperty -Path $tweak.Path -Name $tweak.Name -ErrorAction SilentlyContinue
+            if ($existe -and -not $GlobalConfig.SafeMode -and $tweak.Accion -eq "ELIMINAR") {
+                Remove-ItemProperty -Path $tweak.Path -Name $tweak.Name -ErrorAction SilentlyContinue
+                $tweaksCorregidos++
             }
         }
     }
 
-    if ($tweaksRemoved -gt 0) {
-        Write-Host "  • $tweaksRemoved configuraciones peligrosas eliminadas" -ForegroundColor Green
-    } else {
-        Write-Host "  • No se encontraron configuraciones peligrosas" -ForegroundColor Green
+    foreach ($tweak in $conditionalTweaks) {
+        if (Test-Path $tweak.Path) {
+            $valorActual = Get-ItemProperty -Path $tweak.Path -Name $tweak.Name -ErrorAction SilentlyContinue
+            
+            if ($valorActual -and -not $GlobalConfig.SafeMode) {
+                $currentVal = $valorActual.$($tweak.Name)
+                if ($currentVal -ne $tweak.Valor) {
+                    Set-ItemProperty -Path $tweak.Path -Name $tweak.Name -Value $tweak.Valor -ErrorAction SilentlyContinue
+                    $tweaksAjustados++
+                }
+            }
+        }
     }
 
+    # VERIFICAR MEMORIA VIRTUAL
+    Write-Host ""
     Write-Host "  » Verificando memoria virtual..." -ForegroundColor DarkGray
     try {
         $cs = Get-CimInstance Win32_ComputerSystem
@@ -1018,22 +1361,29 @@ if ($shouldRunPhase3) {
     } catch {
         Write-Host "  • Estado: No verificado" -ForegroundColor DarkGray
     }
+
+    Write-Host ""
+    Write-Host "  📊 RESULTADOS:" -ForegroundColor Cyan
+    if ($tweaksCorregidos -gt 0 -or $tweaksAjustados -gt 0) {
+        Write-Host "  • Tweaks peligrosos eliminados: $tweaksCorregidos" -ForegroundColor Green
+        Write-Host "  • Ajustes específicos para tu hardware: $tweaksAjustados" -ForegroundColor Green
+    } else {
+        Write-Host "  • No se requirieron cambios significativos" -ForegroundColor Green
+    }
+
 } else {
     Write-Host "  • [OMITIDO] Optimización de memoria" -ForegroundColor DarkGray
 }
 
-Write-Host "✔ Configuración contextual de memoria completada" -ForegroundColor Green
+Write-Host "✔ Optimización de memoria completada" -ForegroundColor Green
 Write-Host ""
 
 # =====================================================================
-# [FASE 4] NETWORK INTELIGENTE
+# [FASE 4] Optimización de red
 # =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 4: Optimizando red..." -PercentComplete 40
+Write-Host "[FASE 4] Optimización de red" -ForegroundColor Yellow
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
-Write-Host "[FASE 4] Optimización inteligente de red" -ForegroundColor Yellow
-Write-Host "─" * 70 -ForegroundColor DarkGray
-
-# Verificar si esta optimización fue seleccionada
 $shouldRunPhase4 = if ($opcion -eq "2") {
     ($selectedOptimizations | Where-Object { $_.Fase -eq 4 }).Count -gt 0
 } else {
@@ -1043,82 +1393,52 @@ $shouldRunPhase4 = if ($opcion -eq "2") {
 if ($shouldRunPhase4 -and -not $GlobalConfig.SafeMode) {
     Write-Host "  » Aplicando configuración optimizada de red..." -ForegroundColor DarkGray
     Write-Host ""
-
-    Write-Host "  • TCP Auto-tuning: Normal (estable y recomendado)" -ForegroundColor DarkGray
-    netsh int tcp set global autotuninglevel=normal 2>&1 | Out-Null
-
-    Write-Host "  • TCP RSS: Habilitado (mejor rendimiento multicore)" -ForegroundColor DarkGray
-    netsh int tcp set global rss=enabled 2>&1 | Out-Null
-
-    Write-Host "  • TCP Chimney: Deshabilitado (tecnología obsoleta)" -ForegroundColor DarkGray
-    netsh int tcp set global chimney=disabled 2>&1 | Out-Null
-
-    if ($SystemProfile.Network.AdapterName -and -not $GlobalConfig.SafeMode) {
-        Write-Host ""
-        Write-Host "  » Aplicando optimizaciones específicas..." -ForegroundColor DarkGray
-        
-        try {
-            $proxyEnabled = (Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -Name ProxyEnable -ErrorAction SilentlyContinue) -eq 1
-            
-            if ($proxyEnabled) {
-                Write-Host "  • Red Corporativa/Proxy detectado" -ForegroundColor Yellow
-                Write-Host "    Optimizando para entorno empresarial..." -ForegroundColor DarkGray
-                netsh int tcp set global autotuninglevel=restricted 2>&1 | Out-Null
-                Write-Host "  • TCP Auto-tuning: Restricted (mejor para proxy/VPN)" -ForegroundColor Green
-            } else {
-                if ($SystemProfile.Network.Vendor -eq "Killer") {
-                    Write-Host "  • Adaptador Killer detectado: optimizando RSS..." -ForegroundColor Yellow
-                    Set-NetAdapterRss -Name $SystemProfile.Network.AdapterName -NumberOfReceiveQueues 4 -ErrorAction SilentlyContinue
-                    Write-Host "  • RSS configurado a 4 queues (mejor latencia)" -ForegroundColor Green
-                }
-                elseif ($SystemProfile.Network.PrimaryType -eq "WiFi") {
-                    Write-Host "  • WiFi detectado: optimizando para conexión inalámbrica..." -ForegroundColor Yellow
-                    Set-NetAdapterAdvancedProperty -Name $SystemProfile.Network.AdapterName -DisplayName "Green Energy" -RegistryValue 1 -ErrorAction SilentlyContinue
-                    Write-Host "  • WiFi optimizado para estabilidad" -ForegroundColor Green
-                }
-                elseif ($SystemProfile.Network.Vendor -in @("Intel", "Realtek")) {
-                    Write-Host "  • $($SystemProfile.Network.Vendor) Ethernet: aplicando optimizaciones..." -ForegroundColor Yellow
-                    Enable-NetAdapterRsc -Name $SystemProfile.Network.AdapterName -ErrorAction SilentlyContinue
-                    Enable-NetAdapterLso -Name $SystemProfile.Network.AdapterName -ErrorAction SilentlyContinue
-                    Write-Host "  • Ethernet optimizado para máximo rendimiento" -ForegroundColor Green
-                }
-            }
-        } catch {
-            Write-Host "  ⚠️  Algunas optimizaciones no pudieron aplicarse" -ForegroundColor Yellow
-        }
+    
+    Write-Host "  📊 CONEXIÓN DETECTADA:" -ForegroundColor Cyan
+    Write-Host "  • Tipo: $($SystemProfileDetallado.Network.ConnectionType)" -ForegroundColor DarkGray
+    
+    if ($SystemProfileDetallado.Network.HasProxy) {
+        Write-Host "  • Proxy detectado: $($SystemProfileDetallado.Network.ProxyServer)" -ForegroundColor Yellow
     }
-
+    
+    Write-Host ""
+    Write-Host "  » Ajustando configuración TCP..." -ForegroundColor DarkGray
+    
+    netsh int tcp set global autotuninglevel=normal 2>&1 | Out-Null
+    Write-Host "  • TCP Auto-tuning: Normal" -ForegroundColor DarkGray
+    
+    netsh int tcp set global rss=enabled 2>&1 | Out-Null
+    Write-Host "  • TCP RSS: Habilitado" -ForegroundColor DarkGray
+    
+    if ($SystemProfileDetallado.Network.HasProxy) {
+        netsh int tcp set global timestamps=disabled 2>&1 | Out-Null
+        Write-Host "  • TCP Timestamps: Deshabilitado (optimizado para proxy)" -ForegroundColor DarkGray
+    }
+    
     Write-Host ""
     Write-Host "  » Mantenimiento de DNS..." -ForegroundColor DarkGray
     try {
         Clear-DnsClientCache -ErrorAction Stop
-        Write-Host "  • DNS: Caché limpiada correctamente" -ForegroundColor Green
+        Write-Host "  • DNS: Caché limpiada" -ForegroundColor Green
     } catch {
-        Write-Host "  ⚠️  DNS: No se pudo limpiar caché" -ForegroundColor Yellow
+        Write-Host "  • DNS: No se pudo limpiar caché" -ForegroundColor Yellow
     }
-
+    
     Write-Host ""
-    Write-Host "  📊 RESUMEN DE CONFIGURACIÓN DE RED:" -ForegroundColor Cyan
-    Write-Host "  • Adaptador: $($SystemProfile.Network.AdapterName ?? 'No detectado')" -ForegroundColor DarkGray
-    Write-Host "  • Tipo: $($SystemProfile.Network.PrimaryType)" -ForegroundColor DarkGray
-    Write-Host "  • Fabricante: $($SystemProfile.Network.Vendor)" -ForegroundColor DarkGray
-    Write-Host "  • TCP Optimizado: Sí" -ForegroundColor DarkGray
+    Write-Host "  ✅ Red optimizada" -ForegroundColor Green
 } else {
     Write-Host "  • [OMITIDO] Optimización de red" -ForegroundColor DarkGray
 }
 
-Write-Host "✔ Optimización inteligente de red completada" -ForegroundColor Green
+Write-Host "✔ Optimización de red completada" -ForegroundColor Green
 Write-Host ""
 
 # =====================================================================
-# [FASE 5] Balance contextual de prioridades CPU
+# [FASE 5] Balance de prioridades CPU
 # =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 5: Balanceando prioridades CPU..." -PercentComplete 55
+Write-Host "[FASE 5] Balance de prioridades CPU" -ForegroundColor Yellow
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
-Write-Host "[FASE 5] Balance contextual de prioridades CPU" -ForegroundColor Yellow
-Write-Host "─" * 70 -ForegroundColor DarkGray
-
-# Verificar si esta optimización fue seleccionada
 $shouldRunPhase5 = if ($opcion -eq "2") {
     ($selectedOptimizations | Where-Object { $_.Fase -eq 5 }).Count -gt 0
 } else {
@@ -1126,7 +1446,7 @@ $shouldRunPhase5 = if ($opcion -eq "2") {
 }
 
 if ($shouldRunPhase5 -and -not $GlobalConfig.SafeMode) {
-    Write-Host "  » Ajustando balance foreground/background según perfil..." -ForegroundColor DarkGray
+    Write-Host "  » Ajustando balance según perfil..." -ForegroundColor DarkGray
     Write-Host ""
 
     $priorityPath = "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl"
@@ -1145,18 +1465,15 @@ if ($shouldRunPhase5 -and -not $GlobalConfig.SafeMode) {
     Write-Host "  • [OMITIDO] Balance de prioridades CPU" -ForegroundColor DarkGray
 }
 
-Write-Host "✔ Balance contextual de prioridades completado" -ForegroundColor Green
+Write-Host "✔ Balance de prioridades completado" -ForegroundColor Green
 Write-Host ""
 
 # =====================================================================
-# [FASE 6] Optimización contextual de almacenamiento
+# [FASE 6] Optimización de almacenamiento
 # =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 6: Optimizando almacenamiento..." -PercentComplete 70
+Write-Host "[FASE 6] Optimización de almacenamiento" -ForegroundColor Yellow
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
-Write-Host "[FASE 6] Optimización contextual de almacenamiento" -ForegroundColor Yellow
-Write-Host "─" * 70 -ForegroundColor DarkGray
-
-# Verificar si esta optimización fue seleccionada
 $shouldRunPhase6 = if ($opcion -eq "2") {
     ($selectedOptimizations | Where-Object { $_.Fase -eq 6 }).Count -gt 0
 } else {
@@ -1164,7 +1481,7 @@ $shouldRunPhase6 = if ($opcion -eq "2") {
 }
 
 if ($shouldRunPhase6 -and $systemDiskType -ne "Unknown") {
-    Write-Host "  » Optimizando almacenamiento según tipo y perfil..." -ForegroundColor DarkGray
+    Write-Host "  » Optimizando almacenamiento..." -ForegroundColor DarkGray
     Write-Host ""
 
     Write-Host "  📀 DISCO DEL SISTEMA: $systemDiskType" -ForegroundColor Cyan
@@ -1172,11 +1489,9 @@ if ($shouldRunPhase6 -and $systemDiskType -ne "Unknown") {
     Write-Host "  » Aplicando ajustes seguros..." -ForegroundColor DarkGray
     
     $currentLastAccess = fsutil behavior query disablelastaccess 2>&1
-    if ($currentLastAccess -notmatch "=\s*1") {
-        if (-not $GlobalConfig.SafeMode) {
-            fsutil behavior set disablelastaccess 1 2>&1 | Out-Null
-            Write-Host "  • NTFS LastAccess: Deshabilitado (reduce escrituras)" -ForegroundColor Green
-        }
+    if ($currentLastAccess -notmatch "=\s*1" -and -not $GlobalConfig.SafeMode) {
+        fsutil behavior set disablelastaccess 1 2>&1 | Out-Null
+        Write-Host "  • NTFS LastAccess: Deshabilitado" -ForegroundColor Green
     } else {
         Write-Host "  • NTFS LastAccess: Ya deshabilitado" -ForegroundColor DarkGray
     }
@@ -1184,15 +1499,6 @@ if ($shouldRunPhase6 -and $systemDiskType -ne "Unknown") {
     switch ($systemDiskType) {
         "NVMe" {
             Write-Host "  • NVMe: Configuración de alto rendimiento" -ForegroundColor DarkGray
-            $trimStatus = fsutil behavior query DisableDeleteNotify 2>&1
-            if ($trimStatus -match "=\s*1") {
-                if (-not $GlobalConfig.SafeMode) {
-                    fsutil behavior set DisableDeleteNotify 0 2>&1 | Out-Null
-                    Write-Host "  • TRIM: Activado (para NVMe)" -ForegroundColor Green
-                }
-            } else {
-                Write-Host "  • TRIM: Ya activado" -ForegroundColor DarkGray
-            }
         }
         "SSD" {
             Write-Host "  • SSD: Configuración equilibrada" -ForegroundColor DarkGray
@@ -1202,14 +1508,12 @@ if ($shouldRunPhase6 -and $systemDiskType -ne "Unknown") {
         }
     }
     
-    if ($systemDiskType -in @("NVMe", "SSD")) {
+    if ($systemDiskType -in @("NVMe", "SSD") -and -not $GlobalConfig.SafeMode) {
         Write-Host "  » Ejecutando optimización para almacenamiento flash..." -ForegroundColor DarkGray
         try {
             $systemDrive = (Get-CimInstance Win32_OperatingSystem).SystemDrive.Replace(":", "")
-            if (-not $GlobalConfig.SafeMode) {
-                Optimize-Volume -DriveLetter $systemDrive -ReTrim -ErrorAction SilentlyContinue | Out-Null
-                Write-Host "  • TRIM/Optimización: Ejecutado" -ForegroundColor Green
-            }
+            Optimize-Volume -DriveLetter $systemDrive -ReTrim -ErrorAction SilentlyContinue | Out-Null
+            Write-Host "  • TRIM/Optimización: Ejecutado" -ForegroundColor Green
         } catch {
             Write-Host "  • TRIM: Windows gestiona automáticamente" -ForegroundColor DarkGray
         }
@@ -1218,18 +1522,15 @@ if ($shouldRunPhase6 -and $systemDiskType -ne "Unknown") {
     Write-Host "  • [OMITIDO] Optimización de almacenamiento" -ForegroundColor DarkGray
 }
 
-Write-Host "✔ Optimización contextual de almacenamiento completada" -ForegroundColor Green
+Write-Host "✔ Optimización de almacenamiento completada" -ForegroundColor Green
 Write-Host ""
 
 # =====================================================================
-# [FASE 7] Optimización contextual de retrasos del sistema
+# [FASE 7] Optimización de interfaz
 # =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 7: Ajustando retrasos del sistema..." -PercentComplete 85
+Write-Host "[FASE 7] Optimización de interfaz" -ForegroundColor Yellow
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
-Write-Host "[FASE 7] Optimización contextual de retrasos del sistema" -ForegroundColor Yellow
-Write-Host "─" * 70 -ForegroundColor DarkGray
-
-# Verificar si esta optimización fue seleccionada
 $shouldRunPhase7 = if ($opcion -eq "2") {
     ($selectedOptimizations | Where-Object { $_.Fase -eq 7 }).Count -gt 0
 } else {
@@ -1237,7 +1538,7 @@ $shouldRunPhase7 = if ($opcion -eq "2") {
 }
 
 if ($shouldRunPhase7 -and -not $GlobalConfig.SafeMode) {
-    Write-Host "  » Ajustando retrasos UI según tipo de almacenamiento..." -ForegroundColor DarkGray
+    Write-Host "  » Ajustando retrasos UI..." -ForegroundColor DarkGray
     Write-Host ""
 
     $delayConfig = @{
@@ -1258,270 +1559,143 @@ if ($shouldRunPhase7 -and -not $GlobalConfig.SafeMode) {
     
     try {
         Set-ItemProperty -Path $delayConfig.ExplorerAdvancedPath -Name DesktopProcess -Type DWord -Value 1 -ErrorAction SilentlyContinue
-        Write-Host "  • Proceso escritorio: Separado (mayor estabilidad)" -ForegroundColor Green
+        Write-Host "  • Proceso escritorio: Separado" -ForegroundColor Green
     } catch {
         Write-Host "  ⚠️  Error configurando proceso escritorio" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "  • [OMITIDO] Optimización de retrasos del sistema" -ForegroundColor DarkGray
+    Write-Host "  • [OMITIDO] Optimización de interfaz" -ForegroundColor DarkGray
 }
 
-Write-Host "✔ Optimización contextual de retrasos completada" -ForegroundColor Green
+Write-Host "✔ Optimización de interfaz completada" -ForegroundColor Green
 Write-Host ""
 
 # =====================================================================
-# [FASE 8] BENCHMARK FINAL Y REPORTE
+# [FASE Hotfixes] Ajustes rápidos
 # =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 8: Ejecutando benchmark final..." -PercentComplete 90
+Write-Host "[HOTFIXES] Ajustes rápidos" -ForegroundColor Magenta
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
-Write-Host "[FASE 8] Benchmark final y reporte" -ForegroundColor Yellow
-Write-Host "─" * 70 -ForegroundColor DarkGray
+$shouldRunHotfixes = if ($opcion -eq "2") {
+    ($selectedOptimizations | Where-Object { $_.Fase -eq "Hotfixes" }).Count -gt 0
+} else {
+    $true
+}
 
-if ($GlobalConfig.EnableBenchmark -and $baseline -and -not $GlobalConfig.SafeMode) {
-    Write-Host "  📊 EJECUTANDO BENCHMARK FINAL..." -ForegroundColor Cyan
-    
-    $postBenchmark = @{}
-    
+$hotfixesApplied = @()
+
+if ($shouldRunHotfixes -and -not $GlobalConfig.SafeMode) {
     try {
-        Write-Host "  » Midiendo responsividad CPU post-optimización..." -ForegroundColor DarkGray
-        $cpuTestPost = Measure-Command {
-            1..100 | ForEach-Object { Start-Sleep -Milliseconds 1 }
+        $wuService = Get-Service -Name wuauserv -ErrorAction SilentlyContinue
+        if ($wuService.Status -ne "Running") {
+            Start-Service wuauserv -ErrorAction SilentlyContinue
+            $hotfixesApplied += "Servicio Windows Update reactivado"
         }
-        $postBenchmark.CPU_Responsividad = [math]::Round($cpuTestPost.TotalMilliseconds, 1)
-        
-        Write-Host "  » Midiendo rendimiento de disco post-optimización..." -ForegroundColor DarkGray
+    } catch {}
+
+    try {
+        ipconfig /flushdns 2>&1 | Out-Null
+        ipconfig /registerdns 2>&1 | Out-Null
+        $hotfixesApplied += "Cache DNS limpiada"
+    } catch {}
+
+    if ($SystemProfile.Storage.SystemDiskType -eq "HDD" -and $totalRAM -lt 8) {
         try {
-            $diskCounterPost = Get-Counter '\LogicalDisk(*)\Avg. Disk Queue Length' -ErrorAction SilentlyContinue
-            if ($diskCounterPost) {
-                $postBenchmark.DiskQueue = [math]::Round($diskCounterPost.CounterSamples[0].CookedValue, 2)
-            }
+            $prefetchPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"
+            Set-ItemProperty -Path $prefetchPath -Name EnablePrefetcher -Value 3 -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $prefetchPath -Name EnableSuperfetch -Value 3 -ErrorAction SilentlyContinue
+            $hotfixesApplied += "Prefetch/SuperFetch optimizado para HDD"
         } catch {}
-        
-        Write-Host "  » Midiendo latencia de red post-optimización..." -ForegroundColor DarkGray
-        if ($baseline.NetworkLatency -ne "Proxy" -and $baseline.NetworkLatency -ne "N/A") {
-            try {
-                $pingTestPost = Test-Connection 8.8.8.8 -Count 2 -ErrorAction SilentlyContinue
-                if ($pingTestPost -and $pingTestPost[0].ResponseTime -gt 0) {
-                    $avgLatencyPost = ($pingTestPost.ResponseTime | Measure-Object -Average).Average
-                    $postBenchmark.NetworkLatency = [math]::Round($avgLatencyPost, 1)
-                }
-            } catch {}
-        }
-        
-        Write-Host "✔ Benchmark final completado" -ForegroundColor Green
-        
-        $improvements = @{}
-        
-        if ($baseline.CPU_Responsividad -and $postBenchmark.CPU_Responsividad) {
-            $cpuImprovement = [math]::Round((1 - ($postBenchmark.CPU_Responsividad / $baseline.CPU_Responsividad)) * 100, 1)
-            $improvements.CPU = $cpuImprovement
-        }
-        
-        if ($baseline.DiskQueue -and $postBenchmark.DiskQueue -and $baseline.DiskQueue -gt 0) {
-            $diskImprovement = [math]::Round((1 - ($postBenchmark.DiskQueue / $baseline.DiskQueue)) * 100, 1)
-            $improvements.Disk = $diskImprovement
-        }
-        
-        if ($baseline.NetworkLatency -and $postBenchmark.NetworkLatency -and $baseline.NetworkLatency -gt 0) {
-            $networkImprovement = [math]::Round((1 - ($postBenchmark.NetworkLatency / $baseline.NetworkLatency)) * 100, 1)
-            $improvements.Network = $networkImprovement
-        }
-        
-        Write-Host ""
-        Write-Host "  📈 RESULTADOS DEL BENCHMARK:" -ForegroundColor Cyan
-        
-        if ($improvements.CPU) {
-            $color = if ($improvements.CPU -gt 0) { "Green" } else { "Red" }
-            $arrow = if ($improvements.CPU -gt 0) { "⬆️" } else { "⬇️" }
-            Write-Host "  • CPU: $($baseline.CPU_Responsividad)ms → $($postBenchmark.CPU_Responsividad)ms = $($improvements.CPU)% $arrow" -ForegroundColor $color
-        }
-        
-        if ($improvements.Disk) {
-            $color = if ($improvements.Disk -gt 0) { "Green" } else { "Red" }
-            $arrow = if ($improvements.Disk -gt 0) { "⬆️" } else { "⬇️" }
-            Write-Host "  • Disk Queue: $($baseline.DiskQueue) → $($postBenchmark.DiskQueue) = $($improvements.Disk)% $arrow" -ForegroundColor $color
-        }
-        
-        if ($improvements.Network) {
-            $color = if ($improvements.Network -gt 0) { "Green" } else { "Red" }
-            $arrow = if ($improvements.Network -gt 0) { "⬆️" } else { "⬇️" }
-            Write-Host "  • Network: $($baseline.NetworkLatency)ms → $($postBenchmark.NetworkLatency)ms = $($improvements.Network)% $arrow" -ForegroundColor $color
-        }
-        
-        try {
-            $reportPath = "$env:USERPROFILE\Desktop\WindowsDeMente_Resultados_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
-            
-            $reportContent = @"
-WINDOWS DE MENTE v1.0 - RESULTADOS DE OPTIMIZACIÓN
-Fecha: $(Get-Date)
-Sistema: $($SystemProfile.OSEdition)
-
-[BENCHMARK REAL]
-CPU Responsividad: $($baseline.CPU_Responsividad)ms → $($postBenchmark.CPU_Responsividad)ms = $(if($improvements.CPU){"$($improvements.CPU)% MEJOR"}else{"N/A"})
-$(if($improvements.Disk){"Disk Queue: $($baseline.DiskQueue) → $($postBenchmark.DiskQueue) = $($improvements.Disk)% MEJOR`r`n"})
-$(if($improvements.Network){"Network: $($baseline.NetworkLatency)ms → $($postBenchmark.NetworkLatency)ms = $($improvements.Network)% MEJOR`r`n"})
-
-[PERFIL DEL SISTEMA]
-Hardware Tier: $HardwareProfile
-Risk Strategy: $($SystemProfile.Strategy)
-Risk Level: $($SystemProfile.RiskLevel)
-Puntuación: $ProfileScore ($relativeScore% del óptimo para tu hardware)
-
-[HARDWARE DETECTADO]
-CPU: $($SystemProfile.CPU.Vendor) $($SystemProfile.CPU.Cores)c/$($SystemProfile.CPU.Threads)t
-RAM: ${totalRAM} GB
-Almacenamiento: $($SystemProfile.Storage.SystemDiskType)
-GPU: $($SystemProfile.GPU.Type) - $($SystemProfile.GPU.Vendor)
-Plataforma: $(if($SystemProfile.Platform.IsLaptop){'Laptop'}else{'Desktop'})
-Red: $($SystemProfile.Network.PrimaryType) - $($SystemProfile.Network.Vendor)
-
-[OPTIMIZACIONES APLICADAS]
-✓ Tweaks peligrosos eliminados: $tweaksRemoved
-✓ Power Plan: $HardwareProfile
-✓ Prioridad CPU: $CPUValue
-✓ Network: Optimizado para $($SystemProfile.Network.Vendor)
-✓ Retrasos Explorer: ${recommendedDelay}ms (optimizado para $systemDiskType)
-✓ Almacenamiento: Optimizado para $($SystemProfile.Storage.SystemDiskType)
-$(if($hotfixesApplied.Count -gt 0){"✓ Hotfixes aplicados: $($hotfixesApplied.Count)`r`n"})
-
-[RECOMENDACIONES]
-$(
-    switch ($HardwareProfile) {
-        "ENTUSIASTA" { "Mantén drivers actualizados para máximo rendimiento." }
-        "EQUILIBRADO" { "Deja que Windows gestione automáticamente, realiza mantenimiento básico periódico." }
-        "ESTÁNDAR" { "Mantén Windows Update activado y evita 'optimizadores' agresivos." }
-        "LIVIANO" { "Minimiza programas en inicio y mantén al menos 15% de espacio libre en disco." }
     }
-)
 
-FILOSOFÍA: Guidance, not force
-Windows está optimizado por diseño. Solo removemos interferencias peligrosas.
-"@
-            
-            $reportContent | Out-File $reportPath -Encoding UTF8
-            Write-Host ""
-            Write-Host "📄 Reporte completo guardado en:" -ForegroundColor Cyan
-            Write-Host "   $reportPath" -ForegroundColor DarkGray
-            
-        } catch {
-            Write-Host "  ⚠️  No se pudo generar reporte completo" -ForegroundColor Yellow
-        }
-        
-    } catch {
-        Write-Host "  ⚠️  Error en benchmark final" -ForegroundColor Red
+    if ($hotfixesApplied.Count -gt 0) {
+        Write-Host "  🔧 Hotfixes aplicados:" -ForegroundColor Cyan
+        $hotfixesApplied | ForEach-Object { Write-Host "    • $_" -ForegroundColor Green }
+    } else {
+        Write-Host "  ✅ No se requirieron hotfixes inmediatos" -ForegroundColor Green
     }
 } else {
-    Write-Host "  • Benchmark final omitido" -ForegroundColor Yellow
+    Write-Host "  • [OMITIDO] Ajustes rápidos" -ForegroundColor DarkGray
 }
-
-Write-Host "✔ Benchmark y reporte completados" -ForegroundColor Green
 Write-Host ""
 
 # =====================================================================
-# [FASE 9] SCORECARD FINAL Y RESUMEN
+# [FASE 9] Resumen final
 # =====================================================================
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "FASE 9: Finalizando..." -PercentComplete 95
+Write-Host "[FASE 9] Resumen final" -ForegroundColor Yellow
+Write-Host ("─" * 70) -ForegroundColor DarkGray
 
-Write-Host "[FASE 9] Scorecard final y resumen" -ForegroundColor Yellow
-Write-Host "─" * 70 -ForegroundColor DarkGray
+$appliedCount = 0
+if ($shouldRunPhase2 -and -not $GlobalConfig.SafeMode) { $appliedCount++ }
+if ($shouldRunPhase3) { $appliedCount++ }
+if ($shouldRunPhase4 -and -not $GlobalConfig.SafeMode) { $appliedCount++ }
+if ($shouldRunPhase5 -and -not $GlobalConfig.SafeMode) { $appliedCount++ }
+if ($shouldRunPhase6 -and -not $GlobalConfig.SafeMode) { $appliedCount++ }
+if ($shouldRunPhase7 -and -not $GlobalConfig.SafeMode) { $appliedCount++ }
+if ($shouldRunHotfixes -and -not $GlobalConfig.SafeMode -and $hotfixesApplied.Count -gt 0) { $appliedCount++ }
 
 Write-Host "✅ VERIFICACIÓN FINAL:" -ForegroundColor Green
-
-# Contar optimizaciones aplicadas realmente
-$appliedCount = 0
 if ($shouldRunPhase2 -and -not $GlobalConfig.SafeMode) { 
     Write-Host "1. Power Plan $HardwareProfile aplicado ✓" -ForegroundColor Gray
-    $appliedCount++
 }
 if ($shouldRunPhase3) { 
-    Write-Host "2. Tweaks peligrosos eliminados: $tweaksRemoved ✓" -ForegroundColor Gray
-    $appliedCount++
+    Write-Host "2. Tweaks peligrosos eliminados: $tweaksCorregidos ✓" -ForegroundColor Gray
 }
 if ($shouldRunPhase4 -and -not $GlobalConfig.SafeMode) { 
-    Write-Host "3. Network optimizado para $($SystemProfile.Network.Vendor) ✓" -ForegroundColor Gray
-    $appliedCount++
+    Write-Host "3. Network optimizado ✓" -ForegroundColor Gray
 }
 if ($shouldRunPhase5 -and -not $GlobalConfig.SafeMode) { 
     Write-Host "4. CPU Priority: $CPUValue ✓" -ForegroundColor Gray
-    $appliedCount++
 }
 if ($shouldRunPhase6 -and -not $GlobalConfig.SafeMode) { 
     Write-Host "5. Storage optimizado para $systemDiskType ✓" -ForegroundColor Gray
-    $appliedCount++
 }
 if ($shouldRunPhase7 -and -not $GlobalConfig.SafeMode) { 
     Write-Host "6. UI delays ajustados para $systemDiskType ✓" -ForegroundColor Gray
-    $appliedCount++
 }
 if ($shouldRunHotfixes -and -not $GlobalConfig.SafeMode -and $hotfixesApplied.Count -gt 0) {
     Write-Host "7. Hotfixes aplicados: $($hotfixesApplied.Count) ✓" -ForegroundColor Gray
-    $appliedCount++
 }
 
 Write-Host ""
 Write-Host "📊 RESUMEN DE OPTIMIZACIONES:" -ForegroundColor Cyan
-Write-Host "  • Total planificadas: $neededOptimizations" -ForegroundColor DarkGray
+Write-Host "  • Total recomendadas: $neededOptimizations" -ForegroundColor DarkGray
 Write-Host "  • Total aplicadas: $appliedCount" -ForegroundColor DarkGray
-Write-Host "  • Modo: $(if($GlobalConfig.SafeMode){'SEGURO (solo análisis)'}else{'OPTIMIZACIÓN ACTIVA'})" -ForegroundColor $(if($GlobalConfig.SafeMode){'Yellow'}else{'Green'})
+Write-Host "  • Modo: $(if($GlobalConfig.SafeMode){'Solo análisis'}else{'Optimización activa'})" -ForegroundColor $(if($GlobalConfig.SafeMode){'Yellow'}else{'Green'})
+
+Save-SystemProfileReport -SystemProfileDetallado $SystemProfileDetallado -FinalProfile $FinalProfile -OptimizationPlan $OptimizationPlan -appliedCount $appliedCount -GlobalConfig $GlobalConfig -tweaksCorregidos $tweaksCorregidos -tweaksAjustados $tweaksAjustados
 
 Write-Host ""
 Write-Host "🎯 RENDIMIENTO CONTEXTUAL:" -ForegroundColor Cyan
 Write-Host "  • Categoría hardware: $HardwareProfile" -ForegroundColor DarkGray
-Write-Host "  • $($categoryInfo.Description)" -ForegroundColor DarkGray
 Write-Host "  • Tu puntuación: $ProfileScore/$($categoryInfo.MaxScore)" -ForegroundColor DarkGray
 Write-Host "  • Rendimiento relativo: $relativeScore% del óptimo para tu hardware" -ForegroundColor $(switch($relativeScore){ {$_ -ge 85}{'Green'} {$_ -ge 70}{'Yellow'} default{'Red'}})
 
-Write-Host ""
-Write-Host "📈 VISUALIZACIÓN DEL RENDIMIENTO:" -ForegroundColor Cyan
 $graphLength = [math]::Round(($ProfileScore / $categoryInfo.MaxScore) * 20)
 $graphBar = "█" * $graphLength + "░" * (20 - $graphLength)
 Write-Host "  [0%] [$graphBar] [100%]" -ForegroundColor Cyan
-Write-Host "  (mínimo) ($([math]::Round(($ProfileScore/$categoryInfo.MaxScore)*100))% de tu potencial) (máximo posible)" -ForegroundColor DarkGray
-
-if ($relativeScore -ge 85 -and $HardwareProfile -ne "ENTUSIASTA") {
-    Write-Host ""
-    Write-Host "🚀 LLEGASTE AL TECHO DE TU HARDWARE:" -ForegroundColor Yellow
-    Write-Host "  • Estás sacando el $relativeScore% del potencial de tu categoría" -ForegroundColor DarkGray
-    Write-Host "  • Para mejoras significativas, considera upgrade de hardware" -ForegroundColor DarkGray
-}
 
 Write-Host ""
 Write-Host "⚠️  RECOMENDACIÓN FINAL" -ForegroundColor Yellow
 $finalRecommendation = switch ($HardwareProfile) {
-    "ENTUSIASTA" { "Sistema potente. Considera actualizar drivers desde fabricante para máximo rendimiento." }
-    "EQUILIBRADO" { "Hardware moderno. Deja que Windows gestione automáticamente, realiza mantenimiento básico periódico." }
-    "ESTÁNDAR" { "Sistema estándar. Mantén Windows Update activado y evita 'optimizadores' agresivos." }
-    "LIVIANO" { "Hardware limitado. Minimiza programas en inicio y mantén al menos 15% de espacio libre en disco." }
+    "ENTUSIASTA" { "Sistema potente. Considera actualizar drivers para máximo rendimiento." }
+    "EQUILIBRADO" { "Hardware moderno. Realiza mantenimiento básico periódico." }
+    "ESTÁNDAR" { "Sistema estándar. Mantén Windows Update activado." }
+    "LIVIANO" { "Hardware limitado. Minimiza programas en inicio." }
 }
 Write-Host "• $finalRecommendation" -ForegroundColor Green
 
-if ($systemHealth.Estado -ne "OK") {
-    Write-Host ""
-    Write-Host "❗ ATENCIÓN REQUERIDA:" -ForegroundColor Red
-    $systemHealth.Problemas | ForEach-Object { Write-Host "  • $_" -ForegroundColor Red }
-    if ($systemHealth.Recomendaciones.Count -gt 0) {
-        Write-Host "  ▶ $($systemHealth.Recomendaciones[0])" -ForegroundColor Cyan
-    }
-}
-
 if ($appliedCount -gt 0 -and -not $GlobalConfig.SafeMode) {
     Write-Host "• Reinicia el sistema para aplicar todas las configuraciones." -ForegroundColor Green
-} else {
-    Write-Host "• No se requirió reinicio (sin cambios o modo seguro)." -ForegroundColor Yellow
 }
 
 Write-Host ""
 Write-Host "   Confía en Windows. Sabe lo que hace." -ForegroundColor DarkGray
-Write-Host "   Tu sistema ahora está en un estado seguro y predecible." -ForegroundColor DarkGray
 
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "   Windows de Mente v1.0 | Optimización Consciente de Windows" -ForegroundColor Cyan
+Write-Host "   Windows de Mente v1.0 | Optimización Inteligente de Windows" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
-
-Write-Progress -Id 1 -Activity "Windows de Mente v1.0" -Status "Completado al 100%" -PercentComplete 100
-Start-Sleep -Milliseconds 500
-Write-Progress -Id 1 -Completed
 
 try {
     [Console]::Beep(2000, 300)
@@ -1557,5 +1731,5 @@ if ($appliedCount -gt 0 -and -not $GlobalConfig.SafeMode) {
 Write-Host ""
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "   Gracias por usar Windows de Mente v1.0" -ForegroundColor Cyan
-Write-Host "   Optimización Consciente de Windows" -ForegroundColor Cyan
+Write-Host "   Optimización Inteligente de Windows" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
