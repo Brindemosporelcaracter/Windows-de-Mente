@@ -1,412 +1,252 @@
+# 🧠 Windows de Mente v1.0 - Optimización Consciente de Windows
 
-# 🧠 Windows de Mente v1.0
+## 📖 ¿Qué es esto?
+**Windows de Mente** no es otro "optimizador mágico" que promete milagros. Es una herramienta **consciente** que primero **analiza tu hardware específico** y solo después aplica ajustes **seguros y documentados**. 
 
-## 🎯 Filosofía: *"Guidance, not force"*
+La filosofía es simple: **"Guidance, not force"** (Guía, no fuerza). No forzamos configuraciones peligrosas; adaptamos Windows a TU hardware.
 
-**No es un optimizador mágico. No prometo milagros. No fuerzo configuraciones peligrosas.**  
-Es una herramienta consciente que analiza tu hardware, elimina interferencias peligrosas y sugiere ajustes contextuales seguros, respetando siempre los límites reales de tu sistema.
+## 🚀 ¿Cómo empezar?
 
----
-
-## 📖 El Manifiesto
-
-### Lo que **SÍ** hace Windows de Mente:
-✅ **Analiza contextualmente** - Detecta hardware real y lo clasifica en categorías apropiadas  
-✅ **Elimina peligros** - Remueve tweaks obsoletos y configuraciones inestables  
-✅ **Ajusta inteligentemente** - Configuraciones basadas en perfil hardware/riesgo  
-✅ **Mide objetivamente** - Benchmark real pre/post con métricas verificables  
-✅ **Educa honestamente** - Muestra rendimiento relativo, no promesas vacías  
-✅ **Respeta Windows** - No interfiere con optimizaciones nativas del sistema  
-
-### Lo que **NO** hace Windows de Mente:
-❌ **Forzar configuraciones agresivas** - No aplico "optimizaciones" que comprometan estabilidad  
-❌ **Prometer mejoras milagrosas** - No hay "¡50% más rápido en 5 minutos!"  
-❌ **Eliminar componentes esenciales** - No deshabilito servicios críticos de Windows  
-❌ **Modificar seguridad** - No toco firewall, antivirus o configuraciones de protección  
-❌ **Crear dependencia** - No necesitas ejecutarme regularmente, una vez es suficiente  
-
----
-
-## 🚀 Cómo Usarlo (CORRECTO)
-
-### **Método recomendado - Copiar y Pegar:**
-
-1. **Abrir PowerShell como Administrador:**
-   - `Win + X` → "Windows PowerShell (Administrador)"
-   - O buscar "PowerShell" → Click derecho → "Ejecutar como administrador"
-
-2. **Copiar todo el script** desde el archivo `Windows-de-Mente.ps1`
-
-3. **Pegar en la consola de PowerShell** y presionar Enter
-
-4. **Seguir las instrucciones** que aparecen en pantalla
-
-### **Alternativa - Ejecutar desde archivo:**
+### Método 1: Ejecución directa (Recomendado para evitar errores)
 ```powershell
-# Navegar a la carpeta del script (ejemplo):
-cd C:\Users\TuUsuario\Downloads
-
-# Ejecutar:
-.\Windows-de-Mente.ps1
+# 1. Abre PowerShell COMO ADMINISTRADOR
+# 2. Copia todo el código del archivo .txt
+# 3. Pega directamente en la ventana de PowerShell
+# 4. Presiona Enter
 ```
 
-### **Para desarrollo/pruebas:**
+### Método 2: Desde archivo
 ```powershell
-# Modo seguro (solo análisis, sin cambios):
-.\Windows-de-Mente.ps1 -SafeMode
-
-# Log detallado:
-.\Windows-de-Mente.ps1 -LogLevel Verbose
+# Guarda el código como WindowsDeMente.ps1
+# Ejecuta en PowerShell como Administrador:
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+.\WindowsDeMente.ps1
 ```
 
----
+## ✨ ¿Qué hace diferente?
 
-## 🏗️ Arquitectura Consciente
+| Característica | Optimizadores Comerciales | Windows de Mente v1.0 |
+|---------------|--------------------------|----------------------|
+| **Enfoque** | "Aplica todo, reza después" | "Analiza primero, optimiza después" |
+| **Tweaks peligrosos** | Los aplican ciegamente | Los **detecta y elimina** |
+| **One-size-fits-all** | Mismo ajuste para todos | **Configuración por hardware** |
+| **Transparencia** | Caja negra | **Te muestra qué y por qué** |
+| **Backup** | Raramente | **Siempre crea backup** |
+| **Reinicio forzado** | Frecuente | **Pregunta antes** |
 
-### 9 Fases Contextuales:
-1. **Análisis de sistema** - Detección inteligente de hardware real
-2. **Evaluación de capacidades** - Puntuación relativa por categoría
-3. **Power Plan contextual** - Plan energético según perfil hardware
-4. **Hotfixes específicos** - Soluciones para problemas comunes detectados
-5. **Limpieza de memoria** - Eliminación de tweaks peligrosos
-6. **Optimización de red** - Ajustes proxy-aware y específicos por adaptador
-7. **Balance de prioridades CPU** - Valores según estrategia de riesgo
-8. **Optimización de almacenamiento** - Configuraciones por tipo de disco
-9. **Benchmark y reporte** - Mediciones reales y documentación completa
+## 🔍 Fases de Ejecución
 
-
-
-## 🚀 **RESUMEN DE FUNCIONALIDADES - VERSIÓN ACTUAL**
-
-### 🔍 **DETECCIÓN INTELIGENTE DE HARDWARE**
-- **CPU**: Clasificación por núcleos/hilos (2c/4t, 4c/8t, etc.)
-- **RAM**: Detección exacta de memoria disponible y uso
-- **ALMACENAMIENTO**: Identificación HDD/SSD/NVMe con optimizaciones específicas
-- **GPU**: Detección integrada vs dedicada (NVIDIA/AMD/Intel)
-- **RED**: Identificación de chipset (Realtek, Intel, Killer) y tipo (Ethernet/Wi-Fi)
-
-### ⚙️ **OPTIMIZACIONES APLICABLES**
-- **Power Plan Contextual**: Equilibrado/Alto rendimiento según hardware
-- **Prioridad CPU**: Valores optimizados (ej: 24 para sistemas equilibrados)
-- **Network Tweaks**: Optimizaciones específicas por fabricante de red
-- **Retrasos Explorer**: Configurado según tipo de disco (200ms HDD, 0ms SSD)
-- **Hotfixes Comunes**: Soluciones para problemas conocidos de Windows
-- **Eliminación de Tweaks Peligrosos**: Remoción de configuraciones inestables
-
-### 📊 **BENCHMARK REAL Y MEDICIÓN**
-- **Responsividad CPU**: Medición en milisegundos (pre/post)
-- **Puntuación Contextual**: 0-100 basado en categoría de hardware
-- **Categorías Hardware**: Liviano/Estándar/Equilibrado/Entusiasta
-- **Porcentaje de Potencial**: "95% del óptimo para tu hardware"
-
-### 🛡️ **SEGURIDAD Y ESTABILIDAD**
-- **0 Tweaks Peligrosos**: Solo ajustes seguros y probados
-- **Backup Automático**: Respaldos antes de cambios críticos
-- **Log Detallado**: Registro completo de todas las acciones
-- **Sin Modificaciones Críticas**: No se tocan servicios esenciales
-
-### 📋 **PERFILES Y ESTRATEGIAS**
-- **Hardware Tier**: Detección automática (Liviano a Entusiasta)
-- **Risk Strategy**: Aggressive/Conservative según configuración
-- **Risk Level**: Evaluación de riesgos (Low/Medium/High)
-- **Power Plan**: Recomendación según capacidades de refrigeración
-
-### 📁 **SALIDA Y REPORTES**
-- **Reporte en Desktop**: `WindowsDeMente_Resultados_AAAAMMDD_HHMMSS.txt`
-- **Contenido del Log**:
-  - Benchmark comparativo
-  - Hardware detectado
-  - Optimizaciones aplicadas
-  - Recomendaciones personalizadas
-  - Estado del sistema
-
-### 🔧 **MODOS DE EJECUCIÓN**
-- **Interactivo Normal**: Con confirmaciones y explicaciones
-- **Modo Seguro (-SafeMode)**: Solo análisis, sin cambios
-- **Log Detallado (-LogLevel Verbose)**: Información extendida
-- **Ejecución Directa**: Copiar/pegar desde PowerShell Admin
-
-### 🎯 **ESCENARIOS ESPECÍFICOS CUBIERTOS**
-- **HDD Antiguos**: Optimización de delays y caché
-- **Poca RAM (<8GB)**: Gestión mejorada de memoria
-- **GPUs Dedicadas**: Planes de energía optimizados
-- **Chipsets de Red Específicos**: Tweaks para Realtek, Intel, etc.
-- **CPUs de Pocos Núcleos**: Balance de prioridades mejorado
-
-### ⚠️ **PROTECCIONES INTEGRADAS**
-- **Validación Previa**: Chequeo de requisitos antes de ejecutar
-- **Manejo de Errores**: Try/catch en todas las operaciones críticas
-- **Restauración Posible**: Backups para revertir si es necesario
-- **Sin Dependencias**: No requiere ejecuciones periódicas
-
-### 📈 **RESULTADOS ESPERADOS**
-- **Mejora Real**: 1-5% en responsividad (no promesas exageradas)
-- **Estabilidad Mejorada**: Menos crashes y congelaciones
-- **Fluidez Incrementada**: Respuesta más rápida en tareas cotidianas
-- **Transparencia Total**: Sabes exactamente qué cambió y por qué
-
----
-
-## ⚡ **¿QUÉ HACE ESTA VERSIÓN EN CONCRETO?**
-
-1. **ANALIZA** tu hardware real (no asume nada)
-2. **CLASIFICA** en categoría apropiada (no compara incomparables)
-3. **ELIMINA** solo lo peligroso (tweaks inestables)
-4. **OPTIMIZA** según tu configuración exacta
-5. **MIDO** mejoras reales (benchmark objetivo)
-6. **EDUCO** con resultados honestos (no porcentajes inventados)
-7. **DOCUMENTO** todo (transparencia completa)
-
-**Ejemplo de salida real:**
-
-## 🎨 Diferencias Fundamentales
-
-### ❌ Optimizadores Tradicionales:
-- **Enfoque**: "Más rápido a cualquier costo"
-- **Método**: Tweaks agresivos, deshabilitación masiva
-- **Resultado**: Inestabilidad, pérdida de funcionalidad
-- **Transparencia**: Cero - caja negra
-- **Filosofía**: "Windows es estúpido, nosotros sabemos más"
-
-### ✅ Windows de Mente:
-- **Enfoque**: "Estable y predecible primero"
-- **Método**: Ajustes contextuales, eliminación solo de peligros
-- **Resultado**: Sistema seguro dentro de sus límites reales
-- **Transparencia**: Total - benchmark verificable
-- **Filosofía**: "Windows sabe lo que hace, solo remuevo interferencias"
-
----
-
-## 📊 Sistema de Puntuación Contextual
-
-### No comparo manzanas con naranjas:
-- **Core 2 Duo** evaluado en categoría **"LIVIANO"**
-- **Intel i9** evaluado en categoría **"ENTUSIASTA"**  
-- **Cada hardware en su propia liga**
-- **Puntuación relativa a categoría** (no absoluta)
-
-### Categorías de Hardware:
-- **LIVIANO** - Hardware limitado/antiguo (<4GB RAM, HDD, CPUs básicas)
-- **ESTÁNDAR** - Hardware común (8GB RAM, HDD/SSD, CPUs modernas)
-- **EQUILIBRADO** - Hardware moderno medio (16GB RAM, SSD, CPUs potentes)
-- **ENTUSIASTA** - Hardware de gama alta (32GB+ RAM, NVMe, CPUs flagship)
-
----
-
-## 🛡️ Seguridad y Estabilidad Primero
-
-### Elimino solo lo peligroso:
-- Tweaks de memoria que causan inestabilidad
-- Configuraciones obsoletas de red
-- Valores de registro que Windows ya gestiona mejor
-- "Optimizaciones" de dudosa procedencia
-
-### Aplico solo lo seguro:
-- Ajustes UI según tipo de almacenamiento (0ms NVMe, 200ms HDD)
-- Power Plans según capacidad de refrigeración
-- Optimizaciones específicas por fabricante (Killer, Realtek, Intel)
-- Hotfixes para problemas comunes (DNS, Windows Update)
-
----
-
-## 📈 Benchmark Real (No Artificial)
-
-### Mido lo verificable:
-- **Responsividad CPU** - Tiempo real de ejecución de tareas
-- **Estado de disco** - Queue Length real (no velocidad sintética)
-- **Latencia de red** - Ping real con detección proxy-aware
-- **Reporte completo** - Documentación detallada en Desktop
-
-### Transparencia total:
-```
-CPU: 1587.9ms → 1589.2ms = -0.1% ⬇️
-(No miento. Si ya estabas optimizado, lo muestro)
+### 📊 **FASE 0: Análisis Inicial**
+```powershell
+# Mide tu sistema ANTES de tocar nada:
+• CPU Usage (%) 
+• RAM Libre (MB)
+• Disco Libre (GB) 
+• Latencia de Red (ms)
 ```
 
----
+### 🧩 **FASE 1: Categorización Inteligente**
+Tu hardware determina la estrategia:
+- **ENTUSIASTA** (≥8 núcleos, ≥16GB RAM, SSD)
+- **EQUILIBRADO** (≥6 núcleos, ≥8GB RAM, SSD)
+- **ESTÁNDAR** (≥4 núcleos, ≥4GB RAM)
+- **LIVIANO** (configuraciones menores)
 
-## 🚀 Cuándo Usar Windows de Mente
+### ⚙️ **FASES 2-9: Optimización Contextual**
+Cada fase se adapta a tu categoría:
 
-### ✅ Situaciones apropiadas:
-- Después de instalación limpia de Windows
-- Tras usar optimizadores agresivos (limpieza)
-- Al cambiar hardware significativo
-- Si experimentas lentitud inexplicable post-updates
-- Antes de donar/vender equipo (estado limpio y estable)
+1. **Power Plan**: Alto Rendimiento vs Equilibrado vs Ahorro
+2. **Red**: TCP optimizado según tu conexión (Ethernet/Wi-Fi)
+3. **CPU**: Prioridades ajustadas por núcleos disponibles
+4. **Almacenamiento**: SSD (TRIM) vs HDD (Defrag programado)
+5. **Servicios**: Solo demora los no críticos (WSearch, SysMain)
+6. **Startup**: Mueve actualizadores a backup (no los elimina)
+7. **UI**: Animaciones optimizadas para tu hardware
+8. **Memoria Virtual**: Solo ajusta si RAM < 8GB
+9. **Verificación**: Asegura Windows Update activo
 
-### ❌ Cuándo NO usarlo:
-- Como "acelerador" diario/semanal (no es necesario)
-- Si el sistema funciona perfectamente (no arregles lo no roto)
-- Para "solucionar" problemas de hardware real
-- Expectativas de milagros de rendimiento
+## 🛡️ Características de Seguridad
 
----
+### ✅ **Siempre hace backup:**
+```powershell
+# Registro modificado se guarda en:
+HKCU/HKLM\Software\WindowsDeMente\Backup\
 
-## 📁 Estructura del Proyecto
-
-```
-Windows-de-Mente/
-│
-├── Windows-de-Mente.ps1          # Script principal (última versión)
-├── Windows-de-Mente-v1.0.ps1     # Release base estable
-│
-├── README.md                     # Este documento
-├── LICENSE                       # Licencia MIT
-│
-└── examples/
-    └── Sample-Report.txt        # Ejemplo de reporte generado
+# Valores de inicio/apagado respaldados antes de modificar
 ```
 
----
-
-## ⚠️ Aclaración Importante
-
-**La versión en este repositorio (`Windows-de-Mente.ps1`) es la MÁS RECIENTE**  
-La release `Windows-de-Mente-v1.0.ps1` se mantiene como base estable por compatibilidad.
-
-**Siempre usa la versión del repositorio principal** para:
-- Últimas correcciones de bugs
-- Mejoras de detección
-- Optimizaciones contextuales actualizadas
-
----
-
-## ⚡ Ejecución Rápida
-
-### Paso a paso:
-1. **Copiar** todo el contenido de `Windows-de-Mente.ps1`
-2. **Abrir PowerShell como Administrador** (IMPORTANTE)
-3. **Pegar** el script completo
-4. **Presionar Enter** y seguir instrucciones
-5. **Reiniciar** cuando se solicite para aplicar cambios
-
-### Qué esperar:
-- Análisis automático de tu hardware
-- Eliminación de configuraciones peligrosas
-- Ajustes contextuales seguros
-- Benchmark real pre/post
-- Reporte completo en tu Desktop
-
----
-
-## 📄 Salida y Resultados
-
-### Reporte generado automáticamente:
-```
-Desktop/WindowsDeMente_Resultados_YYYYMMDD_HHMMSS.txt
+### ✅ **No elimina, mueve:**
+```powershell
+# Entradas de startup sospechosas (updaters) se mueven a backup
+# Puedes restaurarlas manualmente si necesitas
 ```
 
-### Contenido del reporte:
-- Benchmark pre/post con mejoras porcentuales reales
-- Perfil hardware detectado
-- Optimizaciones aplicadas
-- Recomendaciones personalizadas
-- Estado de salud del sistema
+### ✅ **Modo de informe:**
+```powershell
+# Ejecuta primero con "N" para ver qué haría
+# Sin cambios reales al sistema
+```
 
----
+### ✅ **Reinicio opcional:**
+```powershell
+# Pregunta antes de reiniciar
+# Tienes 10 segundos para cancelar (Ctrl+C)
+```
 
-## 🔧 Para Desarrolladores/Contribuidores
+## 📈 Métricas y Logs
 
-### Estilo del proyecto:
-- **Voz en primera persona** (el script "habla")
-- **Comentarios en español** (filosofía del proyecto)
-- **Variables descriptivas** en español-inglés técnico
-- **Manejo robusto de errores** (try/catch everywhere)
+### 📊 **Comparativa Antes/Después:**
+```
+══════════════════════════════════════════════════════
+Métricas antes:  CPU 12%, RAM libre 2048 MB
+Métricas después: CPU 8%, RAM libre 2560 MB
+Deltas: CPU -4% ; RAM +512 MB
+══════════════════════════════════════════════════════
+```
 
-### Si quieres contribuir:
-- Issues para bugs y mejoras
-- Discusiones sobre filosofía primero
-- Cambios que respeten principios base
+### 📝 **Logs detallados:**
+```powershell
+# Temporal: %TEMP%\WindowsDeMente_Logs\
+# Escritorio: WindowsDeMente_Log_YYYYMMDD_HHMMSS.txt
+```
 
-### Pruebas realizadas:
-- Múltiples configuraciones hardware
-- Diferentes versiones Windows
-- Escenarios edge cases (proxy, sin internet, etc.)
+## 🎯 ¿Por qué deberías notar mejoras?
 
----
+### 🚀 **Arranque más rápido:**
+- Menos programas en startup
+- Servicios no críticos en "delayed start"
+- Fast Startup optimizado para tu almacenamiento
 
-## 📜 Licencia
+### ⚡ **Multitarea mejorada:**
+- Prioridades CPU ajustadas a tus núcleos
+- TCP optimizado para tu tipo de conexión
+- Pagefile personalizado si RAM es limitada
 
-MIT License - Ver archivo LICENSE para detalles.
+### 💾 **SSD más duradero:**
+- TRIM habilitado
+- Desfragmentación deshabilitada
+- Prefetch/Superfetch ajustados
 
-### Puedes:
-- Usarlo personal y comercialmente
-- Modificarlo y distribuirlo
-- Incluirlo en otros proyectos
+## ⚠️ Lo que NO hace (y eso es bueno)
 
-### Debes:
-- Mantener crédito original
-- Incluir licencia en distribuciones
-- No hacerme responsable por problemas
+### ❌ **NO:**
+- Elimina system32 ni archivos críticos
+- Deshabilita servicios esenciales
+- Cambia configuraciones sin backup
+- Instala software adicional
+- Modifica seguridad del sistema
+- Aplica "tweaks" no documentados
 
----
+### ✅ **SÍ:**
+- Respeta las decisiones de Windows
+- Mantiene todo reversible
+- Explica cada cambio
+- Se adapta a tu hardware
 
-## 🧭 Filosofía Final
+## 🔄 Restauración
 
-> **"No comparo. No prometo. No fuerzo.**  
-> **Analizo. Educo. Guío.**  
-> **Windows ya está optimizado por diseño.**  
-> **Solo remuevo interferencias peligrosas.**  
-> **Confía en Windows. Sabe lo que hace."**
+### Si algo no funciona bien:
+```powershell
+# 1. Los backups están en:
+%USERPROFILE%\Documents\WindowsDeMente_Backup_YYYYMMDD\
 
----
+# 2. Los valores de registro movidos están en:
+HKCU\Software\WindowsDeMente\Backup\
+HKLM\Software\WindowsDeMente\Backup\
 
-## ❓ Preguntas Frecuentes
+# 3. Siempre puedes restaurar punto de sistema de Windows
+```
 
-### **¿Por qué copiar y pegar en lugar de ejecutar el archivo?**
-Por seguridad. Al copiar/pegar, ves exactamente qué se ejecutará. Además, algunos sistemas bloquean la ejecución directa de scripts .ps1.
+## 🤔 Preguntas Frecuentes
 
 ### **¿Es seguro?**
-Totalmente. Solo elimino configuraciones conocidas como peligrosas y aplico ajustes conservadores basados en tu hardware específico.
-
-### **¿Funciona en Windows 10 y 11?**
-Sí, en todas las ediciones de ambos sistemas.
+Totalmente. No aplica tweaks peligrosos como `DisablePagingExecutive` o `LargeSystemCache` que otros optimizadores aplican ciegamente.
 
 ### **¿Necesito reiniciar?**
-Sí, algunos cambios requieren reinicio para aplicar completamente. El script te lo pedirá al final.
+Solo si aplicas cambios. Puedes ejecutar en modo informe primero.
 
-### **¿Puedo revertir los cambios?**
-Sí, se crean backups automáticos en `Documents\WindowsDeMente_Backup_*` con toda la información necesaria.
+### **¿Funciona en Windows 10/11?**
+Sí, ambas versiones son compatibles.
 
-### **¿Qué hago si algo sale mal?**
-1. Revisa el reporte generado en Desktop
-2. Mira los backups creados
-3. Si es crítico, usa "Restaurar sistema" de Windows
+### **¿Puedo deshacer cambios?**
+Absolutamente. Todo tiene backup y el script es no-destructivo.
+
+### **¿Por qué no hay interfaz gráfica?**
+Para ser ligero, rápido y ejecutable directamente en PowerShell sin instalación.
+
+## 💡 Filosofía del Proyecto
+
+### **"Optimización consciente" significa:**
+1. **Analizar** antes de actuar
+2. **Entender** tu hardware específico
+3. **Aplicar** solo lo necesario
+4. **Documentar** cada cambio
+5. **Permitir** reversión fácil
+
+### **Contra los "optimizadores agresivos":**
+```powershell
+# Ellos aplican: DisablePagingExecutive, IoPageLockLimit, etc.
+# Nosotros: Detectamos y ELIMINAMOS esos tweaks peligrosos
+# Resultado: Mayor estabilidad, menos pantallazos azules
+```
+
+## 📞 Soporte y Contribución
+
+### **Reportar problemas:**
+```powershell
+# Incluye el log de: %TEMP%\WindowsDeMente_Logs\
+# Y tu categoría detectada: ENTUSIASTA/EQUILIBRADO/ESTÁNDAR/LIVIANO
+```
+
+### **Para desarrolladores:**
+El código está estructurado en funciones claras:
+- `Get-Metrics` → Medición
+- `Log` → Registro
+- `Get-CPUInfoDetallada` → Análisis
+- Cada fase es modular y auto-contenida
+
+## 🎁 Características Únicas
+
+### **Marcador de boot:**
+```powershell
+# Crea: %TEMP%\WindowsDeMente_Logs\WDM_boot_marker_TIMESTAMP.txt
+# Para que midas manualmente si el arranque mejoró
+```
+
+### **Detección inteligente de proxy:**
+```powershell
+# Ajusta TCP diferente si usas proxy corporativo
+# No asume que todos tienen conexión directa
+```
+
+### **Optimización para laptops:**
+```powershell
+# Detecta si es portátil
+# Ajusta power plan para AC/batería
+# Considera restricciones térmicas
+```
+
+## 🏁 Comenzar Ahora
+
+```powershell
+# Copia, pega, y deja que analice tu sistema:
+"Tu PC no es un número en una base de datos. Es único."
+"Windows ya es bueno. Solo necesita configuración apropiada."
+"Menos es más. Especialmente en optimización."
+```
+
+## ⚖️ Licencia y Uso
+
+### **Uso personal:** Libre y gratuito
+### **Uso corporativo:** Notificar al autor
+### **Redistribución:** Atribución requerida
+
+**Descargo de responsabilidad:** Este script se proporciona "tal cual". El autor no se responsabiliza por daños. Siempre ten backup de tus datos importantes.
 
 ---
 
-## 🤝 Soporte y Contacto
-
-### ¿Problemas o preguntas?
-1. Revisa los issues existentes en el repositorio
-2. Crea nuevo issue con:
-   - Reporte generado por el script
-   - Descripción clara del problema
-   - Tu configuración hardware relevante
-
-### ¿Sugerencias de mejora?
-- Primero discute la filosofía (¿respetaría "Guidance, not force"?)
-- Luego propón implementación técnica
-- Finalmente, implementación respetando principios base
-
----
-
-## 🌟 Lo que Dicen los Usuarios
-
-> *"Finalmente un 'optimizador' que no me rompió Windows"*  
-> *"Me dijo honestamente que ya estaba al 95% de mi hardware"*  
-> *"No prometió milagros, solo eliminó lo peligroso"*  
-> *"El benchmark real fue revelador - ya estaba optimizado"*  
-> *"Educó más en 10 minutos que años de 'tweaking'"*
-
----
-
-**Windows de Mente v1.0** - Optimización Consciente de Windows  
-*Porque a veces, la mejor optimización es saber cuándo no optimizar.*
-
----
-
-**Nota Personal:**  
-Este es un proyecto personal desarrollado con la filosofía de que menos es más. No busco, créditos ni reconocimiento. Solo comparto una herramienta que creo que puede ayudar a otros a entender y respetar sus sistemas. Si te sirve, úsala. Si no, ignórala. Un saludo para todos
+**✨ Windows de Mente v1.0**  
+*Porque tu PC merece optimización consciente, no agresiva.*  
+*Confía en Windows. Sabe lo que hace.*sistemas. Si te sirve, úsala. Si no, ignórala. Un saludo para todos
 
 *— Vic*
