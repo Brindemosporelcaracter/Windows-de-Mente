@@ -1,523 +1,1080 @@
-$script = @'
-# WINDOWS DE MENTE v1.0 - Ejecutar en PowerShell como Administrador
+<#
+.SYNOPSIS
+    Windows de Mente v1.0 - Diagnóstico + Optimización 
+.DESCRIPTION
+    FASE 0: Análisis completo de hardware, configuración y runtime
+    FASE 1: Generación de fixes basados en diagnóstico
+    FASE 2: Optimización automática con punto de restauración
+    Requiere confirmación del usuario para reiniciar
+.NOTES
+    Versión: 1.0.0 (Con todas las correcciones)
+    Autor: Windows de Mente
+#>
 
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "`nERROR: Ejecuta PowerShell como ADMINISTRADOR" -ForegroundColor Red
-    exit
+#requires -RunAsAdministrator
+#requires -Version 5.0
+
+# [CONFIGURACIÓN GLOBAL] =====================================================
+$ErrorActionPreference = "Stop"
+$script:Report = @()
+$script:Issues = @()
+$script:Fixes = @()
+$script:Environment = @{}
+$script:StartTime = Get-Date
+
+# [LISTAS BLANCAS Y CONSTANTES] ===============================================
+$coreServices = @(
+    'RpcSs', 'DcomLaunch', 'EventLog', 'Winmgmt', 'Dhcp',
+    'BFE', 'MpsSvc', 'mpssvc', 'LanmanWorkstation', 'SamSs', 'Schedule',
+    'Power', 'UserManager', 'WinDefend', 'WSearch', 'Spooler',
+    'WpnService', 'Wcmsvc', 'ProfSvc', 'Themes', 'AudioSrv',
+    'AudioEndpointBuilder', 'WlanSvc', 'NlaSvc', 'Dnscache',
+    'SysMain', 'WdiServiceHost', 'wscsvc', 'SecurityHealthService',
+    'RpcEptMapper', 'PlugPlay', 'BrokerInfrastructure', 'DPS',
+    'SystemEventsBroker', 'TimeBrokerSvc', 'FontCache', 'sppsvc',
+    'LicenseManager', 'gpsvc', 'TrkWks', 'BITS', 'CryptSvc',
+    'DusmSvc', 'LSM', 'NcbService', 'PcaSvc', 'StateRepository',
+    'StorSvc', 'TabletInputService', 'UsoSvc', 'VaultSvc',
+    'WaaSMedicSvc', 'WEPHOSTSVC', 'WerSvc', 'wisvc'
+)
+
+$severityMap = @{
+    "CRITICO"     = "🔴"
+    "GRAVE"       = "🟠"
+    "MODERADO"    = "🟡"
+    "INFORMATIVO" = "🔵"
+    "OPTIMIZADO"  = "✅"
+    "HUERFANO_POTENCIAL" = "⚠️"
 }
 
-# Preguntas iniciales (Read-Host para consola abierta)
-$choice = Read-Host "¿Dónde querés el log final? (1 = Consola, 2 = Escritorio) [Por defecto: 1]"
-if ($choice -eq "2") { $logToDesktop = $true } else { $logToDesktop = $false }
+# [FUNCIONES AUXILIARES] =====================================================
 
-$applyResp = Read-Host "¿Aplicar cambios al sistema? (S/N) [Por defecto: N]"
-if ($applyResp -eq "S" -or $applyResp -eq "s") { $applyChanges = $true } else { $applyChanges = $false }
-
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$tempLogDir = Join-Path -Path $env:TEMP -ChildPath "WindowsDeMente_Logs"
-if (-not (Test-Path $tempLogDir)) { New-Item -Path $tempLogDir -ItemType Directory | Out-Null }
-$logFileTemp = Join-Path $tempLogDir "WDM_Log_$timestamp.txt"
-
-function Log {
-    param([string]$text)
-    $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $text"
-    Add-Content -Path $logFileTemp -Value $line
-    Write-Host $text
+function Add-Report {
+    param(
+        [string]$Category,
+        [string]$Key,
+        [string]$Value,
+        [string]$Status = "OK",
+        [string]$Recommendation = "",
+        [string]$Severity = "INFORMATIVO"
+    )
+    
+    if ($null -eq $Value) { $Value = "" }
+    
+    $script:Report += [PSCustomObject]@{
+        Category = $Category
+        Key = $Key
+        Value = $Value
+        Status = $Status
+        Severity = $Severity
+        Icon = $severityMap[$Severity]
+        Recommendation = $Recommendation
+        Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    }
+    
+    if ($Status -ne "OK" -and $Status -ne "INFORMATIVO" -and $Status -ne "SERVICIO_CORE" -and $Status -ne "HUERFANO_POTENCIAL") {
+        $script:Issues += [PSCustomObject]@{
+            Category = $Category
+            Key = $Key
+            CurrentValue = $Value
+            Issue = $Status
+            Severity = $Severity
+            Icon = $severityMap[$Severity]
+            Suggestion = $Recommendation
+        }
+    }
 }
 
-Clear-Host
-Write-Host "`n═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "WINDOWS DE MENTE v1.0 - Optimización Consciente con Métricas" -ForegroundColor White
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Log "Inicio de Windows de Mente v1.0"
+function Add-Fix {
+    param(
+        [string]$Category,
+        [string]$Key,
+        [string]$Fix,
+        [string]$Value,
+        [string]$Status = "PENDIENTE"
+    )
+    
+    $script:Fixes += [PSCustomObject]@{
+        Category = $Category
+        Key = $Key
+        Fix = $Fix
+        Value = $Value
+        Status = $Status
+        Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    }
+}
 
-function Get-Metrics {
-    $metrics = [ordered]@{}
+function Test-RegistryValue {
+    param(
+        [string]$Path,
+        [string]$Name,
+        [string]$ExpectedValue = $null,
+        [scriptblock]$ValidationScript = $null
+    )
+    
     try {
-        $cpu = Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
-        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
-        $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
-
-        $metrics.CPUUsage = if ($cpu -and $cpu.LoadPercentage -ne $null) { $cpu.LoadPercentage } else { 0 }
-        $metrics.RAMFreeMB = if ($os -and $os.FreePhysicalMemory -ne $null) { [math]::Round($os.FreePhysicalMemory/1024,1) } else { 0 }
-        $metrics.DiskFreeGB = if ($disk -and $disk.FreeSpace -ne $null) { [math]::Round($disk.FreeSpace/1GB,1) } else { 0 }
-        $ping = Test-Connection -ComputerName 8.8.8.8 -Count 2 -ErrorAction SilentlyContinue
-        $metrics.NetworkLatencyMs = if ($ping) { [math]::Round(($ping | Measure-Object ResponseTime -Average).Average,1) } else { 0 }
-    } catch {
-        $metrics.CPUUsage = 0
-        $metrics.RAMFreeMB = 0
-        $metrics.DiskFreeGB = 0
-        $metrics.NetworkLatencyMs = 0
-    }
-    return $metrics
-}
-
-Write-Host "`n[FASE 0] Métricas iniciales del sistema:" -ForegroundColor Yellow
-$before = Get-Metrics
-Log ("Métricas antes: CPU {0}%, RAM libre {1} MB, Disco libre {2} GB, Latencia red {3} ms" -f $before.CPUUsage, $before.RAMFreeMB, $before.DiskFreeGB, $before.NetworkLatencyMs)
-Write-Host "  • CPU Uso: $($before.CPUUsage)%" -ForegroundColor DarkGray
-Write-Host "  • RAM Libre: $($before.RAMFreeMB) MB" -ForegroundColor DarkGray
-Write-Host "  • Disco Libre: $($before.DiskFreeGB) GB" -ForegroundColor DarkGray
-Write-Host "  • Latencia Red: $($before.NetworkLatencyMs) ms" -ForegroundColor DarkGray
-
-$cpu = Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $cpu) { $cpu = @{ NumberOfCores = 1; Name = "Desconocida" } }
-$ramModules = Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue
-$totalRAMGB = if ($ramModules) { [math]::Round(($ramModules | Measure-Object Capacity -Sum).Sum / 1GB, 1) } else { 0 }
-$disco = $null
-try { $disco = Get-PhysicalDisk -ErrorAction SilentlyContinue | Select-Object -First 1 } catch {}
-$esSSD = $false
-if ($disco -and $disco.MediaType) { $esSSD = ($disco.MediaType -match "SSD|NVMe") }
-$diskType = if ($esSSD) { 'SSD' } else { 'HDD' }
-
-Write-Host "`n[FASE 1] Hardware detectado:" -ForegroundColor Yellow
-Write-Host "  • CPU: $($cpu.Name)" -ForegroundColor DarkGray
-Write-Host "  • RAM total: $totalRAMGB GB" -ForegroundColor DarkGray
-Write-Host "  • Disco: $diskType" -ForegroundColor DarkGray
-Log ("Hardware detectado: CPU '{0}', RAM {1} GB, Disco: {2}" -f $cpu.Name, $totalRAMGB, $diskType)
-
-$puntos = 0
-if ($cpu.NumberOfCores -ge 8) { $puntos += 30 } elseif ($cpu.NumberOfCores -ge 6) { $puntos += 25 } elseif ($cpu.NumberOfCores -ge 4) { $puntos += 20 } else { $puntos += 10 }
-if ($totalRAMGB -ge 16) { $puntos += 30 } elseif ($totalRAMGB -ge 8) { $puntos += 20 } else { $puntos += 10 }
-if ($esSSD) { $puntos += 40 } else { $puntos += 15 }
-
-if ($puntos -ge 85) {
-    $categoria = "ENTUSIASTA"
-} elseif ($puntos -ge 60) {
-    $categoria = "EQUILIBRADO"
-} elseif ($puntos -ge 40) {
-    $categoria = "ESTÁNDAR"
-} else {
-    $categoria = "LIVIANO"
-}
-
-Write-Host "  • Categoría: $categoria (Score: $puntos/100)" -ForegroundColor Cyan
-Log ("Categoria: {0} (Score {1})" -f $categoria, $puntos)
-
-Write-Host "`n[FASE 2] Plan de energía..." -ForegroundColor Yellow
-if ($applyChanges) {
-    try {
-        if ($categoria -eq "ENTUSIASTA") { $planGUID = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" } else { $planGUID = "381b4222-f694-41f0-9685-ff5bb260df2e" }
-        powercfg /setactive $planGUID | Out-Null
-        Write-Host "  ✓ Plan de energía configurado" -ForegroundColor Green
-        Log ("Plan de energía aplicado: {0}" -f $planGUID)
-    } catch {
-        Write-Host "  ⚠️ No se pudo cambiar plan de energía" -ForegroundColor Yellow
-        Log ("Error cambiando plan de energía: {0}" -f $_.ToString())
-    }
-} else {
-    Write-Host "  • Modo informe: plan de energía no modificado" -ForegroundColor DarkGray
-    Log "Modo informe: plan de energía no modificado"
-}
-
-Write-Host "`n[FASE 3] Red (Ethernet / Wi‑Fi / Proxy)..." -ForegroundColor Yellow
-try {
-    $regRed = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"
-    if (-not (Test-Path $regRed)) { New-Item -Path $regRed -Force | Out-Null }
-    if ($applyChanges) {
-        Set-ItemProperty -Path $regRed -Name "TcpAckFrequency" -Value 1 -Type DWord -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path $regRed -Name "TCPNoDelay" -Value 1 -Type DWord -ErrorAction SilentlyContinue
-        netsh interface tcp set global autotuninglevel=normal | Out-Null
-        netsh interface tcp set global congestionprovider=ctcp | Out-Null
-        Write-Host "  ✓ Tweaks TCP aplicados" -ForegroundColor Green
-        Log "Tweaks TCP aplicados"
-    } else {
-        Write-Host "  • Modo informe: tweaks TCP no aplicados" -ForegroundColor DarkGray
-        Log "Modo informe: tweaks TCP no aplicados"
-    }
-
-    $adapters = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object {$_.Status -eq "Up"}
-    if ($adapters) {
-        foreach ($adapter in $adapters) {
-            Write-Host "  • Adaptador activo: $($adapter.Name) - $($adapter.InterfaceDescription)" -ForegroundColor DarkGray
-            if ($adapter.InterfaceDescription -match "Wi-Fi|Wireless") {
-                Write-Host "    → Wi‑Fi detectado" -ForegroundColor Cyan
-            } elseif ($adapter.InterfaceDescription -match "Ethernet") {
-                Write-Host "    → Ethernet detectado" -ForegroundColor Cyan
+        $value = Get-ItemProperty -Path $Path -Name $Name -ErrorAction Stop
+        $actualValue = $value.$Name
+        
+        if ($ValidationScript) {
+            $result = & $ValidationScript $actualValue
+            return @{
+                Exists = $true
+                Value = $actualValue
+                Valid = $result.Valid
+                Issue = $result.Issue
+                Recommendation = $result.Recommendation
             }
         }
-    } else {
-        Write-Host "  • No se detectaron adaptadores activos" -ForegroundColor DarkGray
-    }
-
-    $proxy = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -ErrorAction SilentlyContinue
-    if ($proxy -and $proxy.ProxyEnable -eq 1) {
-        Write-Host "  • Proxy detectado: $($proxy.ProxyServer)" -ForegroundColor Yellow
-        Log ("Proxy detectado: {0}" -f $proxy.ProxyServer)
-    } else {
-        Write-Host "  • No se detectó proxy en usuario actual" -ForegroundColor DarkGray
-    }
-} catch {
-    Write-Host "  ⚠️ Error detectando adaptadores de red" -ForegroundColor Yellow
-    Log ("Error detectando adaptadores: {0}" -f $_.ToString())
-}
-
-Write-Host "`n[FASE 4] CPU..." -ForegroundColor Yellow
-try {
-    $regCPU = "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl"
-    if (-not (Test-Path $regCPU)) { New-Item -Path $regCPU -Force | Out-Null }
-    if ($cpu.NumberOfCores -ge 6) { $valorCPU = 36 } else { $valorCPU = 24 }
-    if ($applyChanges) {
-        Set-ItemProperty -Path $regCPU -Name "Win32PrioritySeparation" -Value $valorCPU -Type DWord -ErrorAction SilentlyContinue
-        Write-Host "  ✓ Win32PrioritySeparation ajustado a $valorCPU" -ForegroundColor Green
-        Log ("Win32PrioritySeparation = {0}" -f $valorCPU)
-    } else {
-        Write-Host "  • Modo informe: Win32PrioritySeparation no modificado" -ForegroundColor DarkGray
-        Log ("Modo informe: Win32PrioritySeparation no modificado; valor sugerido {0}" -f $valorCPU)
-    }
-} catch {
-    Write-Host "  ⚠️ Error ajustando prioridad CPU" -ForegroundColor Yellow
-    Log ("Error prioridad CPU: {0}" -f $_.ToString())
-}
-
-Write-Host "`n[FASE 5] Almacenamiento..." -ForegroundColor Yellow
-try {
-    $regPrefetch = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"
-    if (-not (Test-Path $regPrefetch)) { New-Item -Path $regPrefetch -Force | Out-Null }
-    $valorPrefetch = if ($esSSD) { 0 } else { 3 }
-    if ($applyChanges) {
-        Set-ItemProperty -Path $regPrefetch -Name "EnablePrefetcher" -Value $valorPrefetch -Type DWord -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path $regPrefetch -Name "EnableSuperfetch" -Value $valorPrefetch -Type DWord -ErrorAction SilentlyContinue
-        if ($esSSD) {
-            fsutil behavior set DisableDeleteNotify 0 | Out-Null
-            try { Disable-ScheduledTask -TaskName "\Microsoft\Windows\Defrag\ScheduledDefrag" -ErrorAction SilentlyContinue } catch {}
-            Write-Host "  ✓ TRIM habilitado (SSD)" -ForegroundColor Green
-            Log "TRIM habilitado"
-        } else {
-            try { Enable-ScheduledTask -TaskName "\Microsoft\Windows\Defrag\ScheduledDefrag" -ErrorAction SilentlyContinue } catch {}
-            Write-Host "  ✓ Desfragmentación programada habilitada (HDD)" -ForegroundColor Green
-            Log "ScheduledDefrag habilitada"
-        }
-        Write-Host "  ✓ Prefetch/Superfetch ajustado (valor: $valorPrefetch)" -ForegroundColor Green
-        Log ("Prefetch ajustado a {0}" -f $valorPrefetch)
-    } else {
-        Write-Host "  • Modo informe: ajustes de almacenamiento no aplicados" -ForegroundColor DarkGray
-        Log "Modo informe: ajustes de almacenamiento no aplicados"
-    }
-} catch {
-    Write-Host "  ⚠️ Error en optimización de almacenamiento" -ForegroundColor Yellow
-    Log ("Error almacenamiento: {0}" -f $_.ToString())
-}
-
-Write-Host "`n[FASE 6] Servicios..." -ForegroundColor Yellow
-$delayedCandidates = @("WSearch","SysMain","OneSyncSvc")
-foreach ($svc in $delayedCandidates) {
-    try {
-        $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
-        if ($s) {
-            if ($applyChanges) {
-                Set-Service -Name $svc -StartupType AutomaticDelayedStart -ErrorAction SilentlyContinue
-                Write-Host "  ✓ Servicio puesto en AutomaticDelayedStart: $svc" -ForegroundColor Green
-                Log ("Servicio {0} puesto en AutomaticDelayedStart" -f $svc)
-            } else {
-                Write-Host "  • Modo informe: servicio no modificado: $svc" -ForegroundColor DarkGray
+        elseif ($ExpectedValue -ne $null) {
+            return @{
+                Exists = $true
+                Value = $actualValue
+                Valid = ($actualValue -eq $ExpectedValue)
+                Issue = if ($actualValue -ne $ExpectedValue) { "Valor incorrecto" } else { $null }
+                Recommendation = if ($actualValue -ne $ExpectedValue) { "Debería ser $ExpectedValue" } else { $null }
             }
-        } else {
-            Write-Host "  • Servicio no encontrado: $svc" -ForegroundColor DarkGray
         }
-    } catch {
-        Write-Host "  ⚠️ Error ajustando servicio $svc" -ForegroundColor Yellow
-        Log ("Error servicio {0}: {1}" -f $svc, $_.ToString())
+        else {
+            return @{
+                Exists = $true
+                Value = $actualValue
+                Valid = $true
+                Issue = $null
+                Recommendation = $null
+            }
+        }
+    }
+    catch {
+        return @{
+            Exists = $false
+            Value = $null
+            Valid = $false
+            Issue = "No existe en registro"
+            Recommendation = "Considerar crear con valor por defecto"
+        }
     }
 }
-try { ipconfig /flushdns | Out-Null; Write-Host "  ✓ Cache DNS limpiada" -ForegroundColor Green; Log "DNS flush" } catch {}
 
-Write-Host "`n[FASE 7] Programas de inicio..." -ForegroundColor Yellow
-$backupKeyHKCU = "HKCU:\Software\WindowsDeMente\Backup\Run"
-$backupKeyHKLM = "HKLM:\Software\WindowsDeMente\Backup\Run"
-if (-not (Test-Path $backupKeyHKCU)) { New-Item -Path $backupKeyHKCU -Force | Out-Null }
-if (-not (Test-Path $backupKeyHKLM)) { New-Item -Path $backupKeyHKLM -Force | Out-Null }
+function SafeToString {
+    param($InputObject)
+    if ($null -eq $InputObject) { return "" }
+    try { return $InputObject.ToString().Trim() } catch { return "" }
+}
 
-function Backup-And-Remove-RunValue {
-    param([string]$rootPath,[string]$valueName)
+function Extract-ExecutablePath {
+    param([string]$CommandLine)
+    
+    if ([string]::IsNullOrWhiteSpace($CommandLine)) { return $null }
+    
+    $expanded = [System.Environment]::ExpandEnvironmentVariables($CommandLine)
+    
+    if ($expanded -match 'rundll32\.exe\s+"([^"]+\.dll)"') { return $matches[1] }
+    if ($expanded -match 'cmd\.exe\s+/c\s+"([^"]+\.exe)"') { return $matches[1] }
+    if ($expanded -match '"([^"]+\.exe)"') { return $matches[1] }
+    if ($expanded -match '([A-Za-z]:\\[^" ]+\.exe)') { return $matches[1] }
+    if ($expanded -match '([a-zA-Z0-9_]+\.exe)\b') {
+        $exe = $matches[1]
+        $found = Get-Command $exe -ErrorAction SilentlyContinue
+        if ($found) { return $found.Source }
+        return $exe
+    }
+    
+    return $null
+}
+
+function Test-IsSSD {
+    param([int]$DiskNumber)
+    
+    $phys = Get-PhysicalDisk -DeviceNumber $DiskNumber -ErrorAction SilentlyContinue
+    if ($phys.MediaType -eq 3) { return $true }
+    
+    $ctrl = Get-WmiObject Win32_SCSIController | Where-Object { $_.Name -match "NVMe|AHCI" }
+    if ($ctrl) { return $true }
+    
+    return $false
+}
+
+function New-RestorePoint {
+    Write-Host "`n💾 Creando punto de restauración..." -ForegroundColor Cyan
+    
     try {
-        $item = Get-ItemProperty -Path $rootPath -ErrorAction SilentlyContinue
-        if (-not $item) { return $false }
-        $value = $null
-        if ($item.PSObject.Properties.Name -contains $valueName) { $value = $item.$valueName }
-        if ($null -ne $value) {
-            if ($rootPath -like "HKCU:*") { $dest = $backupKeyHKCU } else { $dest = $backupKeyHKLM }
-            if (-not (Test-Path $dest)) { New-Item -Path $dest -Force | Out-Null }
-            New-ItemProperty -Path $dest -Name $valueName -Value $value -Force | Out-Null
-            Remove-ItemProperty -Path $rootPath -Name $valueName -ErrorAction SilentlyContinue
-            Log ("Movido '{0}' de '{1}' a backup" -f $valueName, $rootPath)
-            return $true
-        } else { return $false }
-    } catch {
-        Log ("Error moviendo '{0}' de '{1}': {2}" -f $valueName, $rootPath, $_.ToString())
+        Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue
+        Checkpoint-Computer -Description "Windows de Mente v1.0 - Pre-optimización" -RestorePointType MODIFY_SETTINGS
+        Write-Host "  ✅ Punto de restauración creado exitosamente" -ForegroundColor Green
+        return $true
+    }
+    catch {
+        Write-Host "  ⚠️  No se pudo crear punto de restauración: $($_.Exception.Message)" -ForegroundColor Yellow
         return $false
     }
 }
 
-function Get-RunValueNames { param([string]$path) $names = @(); try { $props = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue; if ($props) { $names = $props.PSObject.Properties | Where-Object { $_.MemberType -eq 'NoteProperty' } | Select-Object -ExpandProperty Name } } catch {}; return $names }
-
-$hkcuRun = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-if (Test-Path $hkcuRun) {
-    $vals = Get-RunValueNames -path $hkcuRun
-    foreach ($v in $vals) {
-        if ($v -match "Update|Updater|GoogleUpdate|AdobeARM|OneDriveSetup|Spotify|Steam") {
-            if ($applyChanges) {
-                if (Backup-And-Remove-RunValue -rootPath $hkcuRun -valueName $v) { Write-Host "  ✓ Startup movido (HKCU): $v" -ForegroundColor Green } else { Write-Host "  ⚠️ No se pudo mover (HKCU): $v" -ForegroundColor Yellow }
-            } else {
-                Write-Host "  • Modo informe: startup detectado (HKCU): $v" -ForegroundColor DarkGray
-            }
-        } else { Write-Host "  • Mantener startup (HKCU): $v" -ForegroundColor DarkGray }
-    }
-} else { Write-Host "  • HKCU Run no existe" -ForegroundColor DarkGray }
-
-$hklmRun = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"
-if (Test-Path $hklmRun) {
-    $vals = Get-RunValueNames -path $hklmRun
-    foreach ($v in $vals) {
-        if ($v -match "Update|Updater|GoogleUpdate|AdobeARM|OneDriveSetup|Spotify|Steam") {
-            if ($applyChanges) {
-                if (Backup-And-Remove-RunValue -rootPath $hklmRun -valueName $v) { Write-Host "  ✓ Startup movido (HKLM): $v" -ForegroundColor Green } else { Write-Host "  ⚠️ No se pudo mover (HKLM): $v" -ForegroundColor Yellow }
-            } else {
-                Write-Host "  • Modo informe: startup detectado (HKLM): $v" -ForegroundColor DarkGray
-            }
-        } else { Write-Host "  • Mantener startup (HKLM): $v" -ForegroundColor DarkGray }
-    }
-} else { Write-Host "  • HKLM Run no existe" -ForegroundColor DarkGray }
-
-Write-Host "`n[FASE 7.5] Inicio y Apagado" -ForegroundColor Yellow
-$backupReg = "HKLM:\Software\WindowsDeMente\Backup\Shutdown"
-if (-not (Test-Path $backupReg)) { New-Item -Path $backupReg -Force | Out-Null }
-
-function Backup-ShutdownValues {
-    $keys = @(
-        @{Path="HKLM:\SYSTEM\CurrentControlSet\Control";Name="WaitToKillServiceTimeout"},
-        @{Path="HKCU:\Control Panel\Desktop";Name="WaitToKillAppTimeout"},
-        @{Path="HKCU:\Control Panel\Desktop";Name="HungAppTimeout"},
-        @{Path="HKCU:\Control Panel\Desktop";Name="AutoEndTasks"},
-        @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power";Name="HiberbootEnabled"},
-        @{Path="HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management";Name="ClearPageFileAtShutdown"}
-    )
-    foreach ($k in $keys) {
-        try {
-            $val = (Get-ItemProperty -Path $k.Path -Name $k.Name -ErrorAction SilentlyContinue).$($k.Name)
-            if ($null -eq $val) { $val = "" }
-            New-ItemProperty -Path $backupReg -Name ($k.Name) -Value $val -Force | Out-Null
-        } catch {}
-    }
-    Log "Backup de valores de inicio/apagado guardado en $backupReg"
-}
-
-function Apply-ShutdownOptimizations {
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control" -Name "WaitToKillServiceTimeout" -Value "5000" -Type String -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "WaitToKillAppTimeout" -Value "2000" -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "HungAppTimeout" -Value "1000" -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "AutoEndTasks" -Value "1" -ErrorAction SilentlyContinue
-
-    $fastStartupReg = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power"
-    if (-not (Test-Path $fastStartupReg)) { New-Item -Path $fastStartupReg -Force | Out-Null }
-    if ($esSSD) {
-        Set-ItemProperty -Path $fastStartupReg -Name "HiberbootEnabled" -Value 1 -Type DWord -ErrorAction SilentlyContinue
-        Log "Fast Startup habilitado (SSD)"
-    } else {
-        Set-ItemProperty -Path $fastStartupReg -Name "HiberbootEnabled" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-        Log "Fast Startup deshabilitado (HDD)"
-    }
-
-    Log "Valores de inicio/apagado aplicados (moderados)."
-}
-
-function Restore-ShutdownValues {
+function Get-CPUTemperature {
     try {
-        $props = Get-ItemProperty -Path $backupReg -ErrorAction SilentlyContinue
-        if ($props) {
-            foreach ($p in $props.PSObject.Properties) {
-                $name = $p.Name
-                $val = $p.Value
-                switch ($name) {
-                    "WaitToKillServiceTimeout" { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control" -Name $name -Value $val -ErrorAction SilentlyContinue }
-                    "WaitToKillAppTimeout" { Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name $name -Value $val -ErrorAction SilentlyContinue }
-                    "HungAppTimeout" { Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name $name -Value $val -ErrorAction SilentlyContinue }
-                    "AutoEndTasks" { Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name $name -Value $val -ErrorAction SilentlyContinue }
-                    "HiberbootEnabled" { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name $name -Value $val -ErrorAction SilentlyContinue }
-                    "ClearPageFileAtShutdown" { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name $name -Value $val -ErrorAction SilentlyContinue }
+        $temp = Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" -ErrorAction SilentlyContinue
+        if ($temp -and $temp.CurrentTemperature -gt 2732) {
+            $celsius = [math]::Round(($temp.CurrentTemperature - 2732) / 10, 1)
+            return @{ Value = $celsius; Source = "WMI"; Valid = $true }
+        }
+        return @{ Value = "No disponible"; Source = "N/A"; Valid = $false }
+    }
+    catch {
+        return @{ Value = "No disponible"; Source = "Error"; Valid = $false }
+    }
+}
+
+function Test-DriverSigning {
+    param([string]$DriverName, [string]$DriverPath)
+    
+    try {
+        if (-not $DriverPath -or -not (Test-Path $DriverPath)) {
+            return "Archivo no encontrado"
+        }
+        $signature = Get-AuthenticodeSignature -FilePath $DriverPath -ErrorAction SilentlyContinue
+        if ($signature -and $signature.Status -eq "Valid") {
+            return "Firmado"
+        } elseif ($signature -and $signature.Status -eq "NotSigned") {
+            return "No firmado"
+        } else {
+            return "Firma no verificada"
+        }
+    } catch {
+        return "Error al verificar"
+    }
+}
+
+function Get-DefenderImpact {
+    try {
+        $proc = Get-Process MsMpEng -ErrorAction SilentlyContinue
+        if (-not $proc) { return $null }
+        
+        $cpuCounter = Get-Counter '\Process(MsMpEng)\% Processor Time' -ErrorAction SilentlyContinue
+        $cpuNow = if ($cpuCounter) { [math]::Round($cpuCounter.CounterSamples.CookedValue, 1) } else { 0 }
+        
+        $mem = [math]::Round($proc.WorkingSet / 1MB, 1)
+        
+        return @{ CPU = $cpuNow; RAM = $mem }
+    } catch {
+        return $null
+    }
+}
+
+# [DETECCIÓN DE ENTORNO] =====================================================
+
+function Test-Environment {
+    Write-Host "`n🔍 [00] Detectando entorno..." -ForegroundColor Cyan
+    
+    try {
+        $cs = Get-WmiObject Win32_ComputerSystem
+        $script:Environment.PartOfDomain = $cs.PartOfDomain
+        $script:Environment.Domain = if ($cs.PartOfDomain) { $cs.Domain } else { "WORKGROUP" }
+        
+        $proxy = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -ErrorAction SilentlyContinue
+        $script:Environment.HasProxy = [bool]($proxy.ProxyServer)
+        $script:Environment.ProxyServer = if ($proxy.ProxyServer) { $proxy.ProxyServer } else { "No configurado" }
+        
+        $dns = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | 
+               Where-Object {$_.ServerAddresses -and $_.InterfaceAlias -notlike "*Loopback*"}
+        $script:Environment.HasStaticDNS = ($dns | Where-Object {$_.ConnectionSpecificSuffix -eq $script:Environment.Domain}).Count -gt 0
+        
+        $script:Environment.IsCorpNetwork = $script:Environment.PartOfDomain -or $script:Environment.HasProxy
+        
+        Add-Report -Category "ENTORNO" -Key "Tipo" -Value $(if ($script:Environment.IsCorpNetwork) { "Corporativo" } else { "Personal" }) -Status "ENTORNO_RED" -Severity "INFORMATIVO"
+        Add-Report -Category "ENTORNO" -Key "Dominio" -Value $script:Environment.Domain -Status "ENTORNO_RED" -Severity "INFORMATIVO"
+        
+        if ($script:Environment.IsCorpNetwork) {
+            Write-Host "  ⚠️  Entorno corporativo detectado - Tests de red limitados" -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Add-Report -Category "ENTORNO" -Key "Error" -Value "No se pudo detectar entorno" -Status "ERROR" -Severity "INFORMATIVO"
+    }
+}
+
+# [BLOQUE 01: HARDWARE BASE] ==================================================
+
+function Test-HardwareBase {
+    Write-Host "`n🔍 [01] Analizando hardware base..." -ForegroundColor Cyan
+    
+    try {
+        $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop
+        Add-Report -Category "HARDWARE" -Key "CPU" -Value "$($cpu.Name) | Cores: $($cpu.NumberOfCores) | Threads: $($cpu.NumberOfLogicalProcessors) | Max: $($cpu.MaxClockSpeed) MHz"
+    } catch { Add-Report -Category "HARDWARE" -Key "CPU" -Value "Error" -Status "ERROR" -Severity "INFORMATIVO" }
+    
+    try {
+        $ram = Get-CimInstance Win32_PhysicalMemory
+        $totalRAM = ($ram | Measure-Object -Property Capacity -Sum).Sum / 1GB
+        Add-Report -Category "HARDWARE" -Key "RAM" -Value "$([math]::Round($totalRAM,2)) GB"
+        
+        if ($totalRAM -lt 4) {
+            Add-Report -Category "HARDWARE" -Key "RAM" -Value "$([math]::Round($totalRAM,2)) GB" -Status "LIMITACION_FISICA" -Severity "INFORMATIVO" -Recommendation "RAM extremadamente baja - Windows será muy lento"
+        } elseif ($totalRAM -lt 8) {
+            Add-Report -Category "HARDWARE" -Key "RAM" -Value "$([math]::Round($totalRAM,2)) GB" -Status "LIMITACION_FISICA" -Severity "INFORMATIVO" -Recommendation "RAM insuficiente para uso moderno - considerar ampliar"
+        }
+    } catch { Add-Report -Category "HARDWARE" -Key "RAM" -Value "Error" -Status "ERROR" -Severity "INFORMATIVO" }
+    
+    try {
+        $disks = Get-PhysicalDisk
+        $hasSSD = $false
+        foreach ($disk in $disks) {
+            $diskType = if ($disk.MediaType -eq 4) { "HDD" } elseif ($disk.MediaType -eq 3) { "SSD" } else { "Unknown" }
+            if ($diskType -eq "SSD") { $hasSSD = $true }
+            Add-Report -Category "HARDWARE" -Key "DISCO_$($disk.FriendlyName)" -Value "$diskType | $([math]::Round($disk.Size/1GB,2)) GB"
+        }
+        if (-not $hasSSD) {
+            Add-Report -Category "HARDWARE" -Key "SISTEMA" -Value "Sin SSD detectado" -Status "LIMITACION_FISICA" -Severity "INFORMATIVO" -Recommendation "SSD recomendado para mejor rendimiento"
+        }
+    } catch { Add-Report -Category "HARDWARE" -Key "DISKS" -Value "Error" -Status "ERROR" -Severity "INFORMATIVO" }
+}
+
+# [BLOQUE 02: ERRORES CRÍTICOS] ===============================================
+
+function Test-CriticalErrors {
+    Write-Host "`n🔍 [02] Buscando errores críticos..." -ForegroundColor Cyan
+    
+    try {
+        $whea = Get-WinEvent -FilterHashtable @{LogName='System'; ID=47,18; StartTime=(Get-Date).AddDays(-1)} -ErrorAction SilentlyContinue
+        if ($whea) {
+            Add-Report -Category "ERRORES" -Key "WHEA" -Value "$($whea.Count) errores en 24h" -Status "WHEA_ERROR" -Severity "CRITICO" -Recommendation "Posible problema de hardware - Revisar Event Viewer"
+        }
+    } catch {}
+    
+    try {
+        $ntfs = fsutil dirty query C: 2>$null
+        if ($ntfs -match "sucio") {
+            Add-Report -Category "ERRORES" -Key "NTFS" -Value "Disco C: sucio" -Status "NTFS_DIRTY" -Severity "CRITICO" -Recommendation "Ejecutar chkdsk /f C:"
+        }
+    } catch {}
+    
+    try {
+        $badDrivers = Get-WmiObject Win32_SystemDriver | Where-Object { $_.State -ne "Running" -and $_.StartMode -eq "Auto" }
+        foreach ($drv in $badDrivers) {
+            Add-Report -Category "ERRORES" -Key "Driver_$($drv.Name)" -Value "$($drv.DisplayName) no carga" -Status "DRIVER_ERROR" -Severity "GRAVE" -Recommendation "Reinstalar driver"
+        }
+    } catch {}
+}
+
+# [BLOQUE 03: CPU AVANZADO] ===================================================
+
+function Test-CPUAdvanced {
+    Write-Host "`n🔍 [03] Analizando CPU avanzado..." -ForegroundColor Cyan
+    
+    $temp = Get-CPUTemperature
+    if ($temp.Valid) {
+        Add-Report -Category "CPU" -Key "Temperatura" -Value "$($temp.Value) °C (fuente: $($temp.Source))"
+        if ($temp.Value -gt 85) {
+            Add-Report -Category "CPU" -Key "Temperatura" -Value "$($temp.Value) °C" -Status "TEMP_CRITICA" -Severity "CRITICO" -Recommendation "Temperatura crítica - Revisar cooling"
+        } elseif ($temp.Value -gt 75) {
+            Add-Report -Category "CPU" -Key "Temperatura" -Value "$($temp.Value) °C" -Status "TEMP_ALTA" -Severity "GRAVE" -Recommendation "Temperatura alta - Limpiar cooler"
+        }
+    } else {
+        Add-Report -Category "CPU" -Key "Temperatura" -Value "No medible por software" -Status "INFORMATIVO" -Recommendation "Usar HWMonitor para temperatura real"
+    }
+    
+    try {
+        $perf = Get-Counter '\Processor Information(_total)\% Processor Performance' -ErrorAction SilentlyContinue
+        if ($perf) {
+            $freqPercent = [math]::Round($perf.CounterSamples.CookedValue, 1)
+            Add-Report -Category "CPU" -Key "Frecuencia" -Value "$freqPercent% de máxima"
+            if ($freqPercent -lt 50) {
+                Add-Report -Category "CPU" -Key "Throttling" -Value "$freqPercent%" -Status "THROTTLING" -Severity "GRAVE" -Recommendation "CPU throttling activo - Posible sobrecalentamiento"
+            }
+        }
+    } catch {}
+    
+    try {
+        $dpcs = Get-Counter '\Processor Information(_total)\DPC Rate' -ErrorAction SilentlyContinue
+        if ($dpcs) {
+            $dpcRate = [math]::Round($dpcs.CounterSamples.CookedValue, 0)
+            Add-Report -Category "CPU" -Key "DPC" -Value "$dpcRate DPC/seg"
+            if ($dpcRate -gt 1000) {
+                Add-Report -Category "CPU" -Key "DPC" -Value "$dpcRate DPC/seg" -Status "DPC_ALTO" -Severity "GRAVE" -Recommendation "Drivers causando alta latencia - Revisar red/audio"
+            }
+        }
+        
+        $wptPath = "C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit"
+        if (Test-Path $wptPath) {
+            Add-Report -Category "CPU" -Key "DPC_Profiling" -Value "WPT disponible para análisis DPC detallado" -Status "INFORMATIVO"
+        }
+    } catch {}
+    
+    try {
+        $parking = powercfg /query 2>$null | Select-String "Core Parking"
+        if ($parking) {
+            Add-Report -Category "CPU" -Key "CoreParking" -Value "Configurado" -Status "INFORMATIVO"
+        }
+    } catch {}
+}
+
+# [BLOQUE 04: MEMORIA AVANZADA] ===============================================
+
+function Test-MemoryAdvanced {
+    Write-Host "`n🔍 [04] Analizando memoria avanzada..." -ForegroundColor Cyan
+    
+    try {
+        $faults = Get-Counter '\Memory\Page Faults/sec' -ErrorAction SilentlyContinue
+        if ($faults) {
+            $hardFaults = [math]::Round($faults.CounterSamples.CookedValue, 0)
+            Add-Report -Category "MEMORIA" -Key "HardFaults" -Value "$hardFaults pg/seg"
+            
+            if ($hardFaults -gt 100) {
+                Add-Report -Category "MEMORIA" -Key "HardFaults" -Value "$hardFaults pg/seg" -Status "HARD_FAULTS_ALTOS" -Severity "GRAVE" -Recommendation "Hard faults muy altos - Síntoma de RAM insuficiente"
+            } elseif ($hardFaults -gt 50) {
+                Add-Report -Category "MEMORIA" -Key "HardFaults" -Value "$hardFaults pg/seg" -Status "HARD_FAULTS_MODERADOS" -Severity "MODERADO" -Recommendation "Hard faults elevados - Posible falta de RAM"
+            }
+        }
+    } catch {}
+    
+    try {
+        $commit = Get-Counter '\Memory\Commit Limit' -ErrorAction SilentlyContinue
+        $commitUsed = Get-Counter '\Memory\Committed Bytes' -ErrorAction SilentlyContinue
+        if ($commit -and $commitUsed) {
+            $limit = [math]::Round($commit.CounterSamples.CookedValue / 1GB, 2)
+            $used = [math]::Round($commitUsed.CounterSamples.CookedValue / 1GB, 2)
+            $percent = [math]::Round(($used / $limit) * 100, 1)
+            Add-Report -Category "MEMORIA" -Key "Commit" -Value "$used GB / $limit GB ($percent%)"
+            
+            if ($percent -gt 90) {
+                Add-Report -Category "MEMORIA" -Key "Commit" -Value "$percent%" -Status "COMMIT_ALTO" -Severity "CRITICO" -Recommendation "Commit charge crítico - Aumentar pagefile"
+            }
+        }
+    } catch {}
+    
+    try {
+        $pool = Get-Counter '\Memory\Pool Nonpaged Bytes' -ErrorAction SilentlyContinue
+        if ($pool) {
+            $poolMB = [math]::Round($pool.CounterSamples.CookedValue / 1MB, 2)
+            Add-Report -Category "MEMORIA" -Key "PoolNonPaged" -Value "$poolMB MB"
+            
+            if ($poolMB -gt 500) {
+                Add-Report -Category "MEMORIA" -Key "PoolNonPaged" -Value "$poolMB MB" -Status "POOL_ALTO" -Severity "MODERADO" -Recommendation "Non-paged pool alto - Posible leak de driver"
+            }
+        }
+    } catch {}
+}
+
+# [BLOQUE 05: DISCO AVANZADO] =================================================
+
+function Test-DiskAdvanced {
+    Write-Host "`n🔍 [05] Analizando disco avanzado..." -ForegroundColor Cyan
+    
+    try {
+        $queue = Get-Counter '\LogicalDisk(*)\Current Disk Queue Length' -ErrorAction SilentlyContinue
+        if ($queue) {
+            $avgQueue = ($queue.CounterSamples | Where-Object {$_.CookedValue -gt 0} | Measure-Object -Property CookedValue -Average).Average
+            Add-Report -Category "DISCO" -Key "QueueLength" -Value "$([math]::Round($avgQueue,2))"
+            
+            if ($avgQueue -gt 2) {
+                Add-Report -Category "DISCO" -Key "QueueLength" -Value "$([math]::Round($avgQueue,2))" -Status "QUEUE_ALTA" -Severity "GRAVE" -Recommendation "Cola de disco alta - Posible bottleneck"
+            }
+        }
+    } catch {}
+    
+    try {
+        $busy = Get-Counter '\LogicalDisk(*)\% Disk Time' -ErrorAction SilentlyContinue
+        if ($busy) {
+            $avgBusy = ($busy.CounterSamples | Where-Object {$_.CookedValue -gt 0} | Measure-Object -Property CookedValue -Average).Average
+            Add-Report -Category "DISCO" -Key "DiskBusy" -Value "$([math]::Round($avgBusy,1))%"
+            
+            if ($avgBusy -gt 90) {
+                Add-Report -Category "DISCO" -Key "DiskBusy" -Value "$([math]::Round($avgBusy,1))%" -Status "DISK_SATURADO" -Severity "GRAVE" -Recommendation "Disco saturado"
+            }
+        }
+    } catch {}
+    
+    try {
+        $writes = Get-Counter '\LogicalDisk(*)\Disk Writes/sec' -ErrorAction SilentlyContinue
+        if ($writes) {
+            $totalWrites = ($writes.CounterSamples | Measure-Object -Property CookedValue -Sum).Sum
+            Add-Report -Category "DISCO" -Key "Escrituras" -Value "$([math]::Round($totalWrites/1024,2)) MB/s"
+        }
+    } catch {}
+    
+    $volumes = Get-Volume | Where-Object DriveType -eq 'Fixed'
+    foreach ($vol in $volumes) {
+        if ($vol.DriveLetter) {
+            try {
+                $trimStatus = fsutil fsInfo ntfsInfo "$($vol.DriveLetter):\" 2>$null | Select-String "TRIM"
+                $hasSSD = Test-IsSSD -DiskNumber (Get-Partition -DriveLetter $vol.DriveLetter | Select-Object -ExpandProperty DiskNumber)
+                
+                if ($hasSSD -and -not $trimStatus) {
+                    Add-Report -Category "DISCO" -Key "TRIM_$($vol.DriveLetter)" -Value "Deshabilitado en $($vol.DriveLetter):" -Status "TRIM_DESACTIVADO" -Severity "GRAVE" -Recommendation "Habilitar TRIM para SSD"
+                }
+            } catch {}
+        }
+    }
+}
+
+# [BLOQUE 06: RED AVANZADA - POR INTERFAZ] ====================================
+
+function Test-NetworkAdvanced {
+    Write-Host "`n🔍 [06] Analizando red avanzada..." -ForegroundColor Cyan
+    
+    try {
+        $adapters = Get-NetAdapter | Where-Object Status -eq "Up"
+        foreach ($ad in $adapters) {
+            Add-Report -Category "RED" -Key "Adaptador_$($ad.Name)" -Value "$($ad.LinkSpeed) | $($ad.FullDuplex)" -Severity "INFORMATIVO"
+            
+            $driver = Get-NetAdapterDriver -Name $ad.Name -ErrorAction SilentlyContinue
+            if ($driver) {
+                $driverDate = $driver.DriverDate
+                Add-Report -Category "RED" -Key "Driver_$($ad.Name)" -Value $driverDate -Severity "INFORMATIVO"
+                
+                if ((Get-Date) - $driverDate -gt (New-TimeSpan -Days 365)) {
+                    Add-Report -Category "RED" -Key "Driver_$($ad.Name)" -Value $driverDate -Status "DRIVER_VIEJO" -Severity "MODERADO" -Recommendation "Driver de red desactualizado"
                 }
             }
-            Log "Valores de inicio/apagado restaurados desde backup."
-        } else {
-            Log "No se encontró backup para restaurar."
+            
+            $ifGuid = $ad.InterfaceGuid
+            $ifPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\$ifGuid"
+            
+            $tcpNoDelay = Get-ItemProperty -Path $ifPath -Name "TCPNoDelay" -ErrorAction SilentlyContinue
+            if ($tcpNoDelay -and $tcpNoDelay.TCPNoDelay -eq 0) {
+                Add-Report -Category "RED" -Key "Nagle_$($ad.Name)" -Value "Habilitado (TCPNoDelay=0)" -Status "NAGLE_ACTIVO" -Severity "MODERADO" -Recommendation "Nagle activo - Puede aumentar latencia"
+            }
+            
+            $tcpAck = Get-ItemProperty -Path $ifPath -Name "TcpAckFrequency" -ErrorAction SilentlyContinue
+            if ($tcpAck -and $tcpAck.TcpAckFrequency -eq 1) {
+                Add-Report -Category "RED" -Key "AckFreq_$($ad.Name)" -Value "$($tcpAck.TcpAckFrequency)" -Status "ACK_FRECUENTE" -Severity "MODERADO" -Recommendation "ACKs muy frecuentes - Aumentar a 2"
+            }
         }
-    } catch {
-        Log ("Error restaurando valores: {0}" -f $_.ToString())
-    }
-}
-
-if ($applyChanges) {
-    Backup-ShutdownValues
-    Apply-ShutdownOptimizations
-} else {
-    Log "Modo informe: no se aplicaron cambios de inicio/apagado"
-}
-
-Write-Host "`n[FASE 8] Interfaz y experiencia..." -ForegroundColor Yellow
-try {
-    if ($applyChanges) {
-        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "MenuShowDelay" -Value "100" -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "MinAnimate" -Value "0" -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "DragFullWindows" -Value "0" -ErrorAction SilentlyContinue
-        Write-Host "  ✓ Ajustes UI aplicados" -ForegroundColor Green
-        Log "Ajustes UI aplicados"
-    } else {
-        Write-Host "  • Modo informe: ajustes UI no aplicados" -ForegroundColor DarkGray
-    }
-} catch {
-    Write-Host "  ⚠️ Error aplicando ajustes UI" -ForegroundColor Yellow
-    Log ("Error UI: {0}" -f $_.ToString())
-}
-
-Write-Host "`n[FASE 9] Memoria virtual..." -ForegroundColor Yellow
-try {
-    if ($applyChanges -and $totalRAMGB -lt 8 -and $totalRAMGB -gt 0) {
-        $min = [math]::Round($totalRAMGB * 1024 * 1.5)
-        $max = [math]::Round($totalRAMGB * 1024 * 3)
-        try { wmic pagefileset where name="C:\\pagefile.sys" delete > $null 2>&1 } catch {}
+    } catch {}
+    
+    try {
+        $autotuning = netsh int tcp show global 2>$null | Select-String "Receive Window Auto-Tuning"
+        if ($autotuning -match "disabled") {
+            Add-Report -Category "RED" -Key "AutoTuning" -Value "Deshabilitado" -Status "AUTOTUNING_OFF" -Severity "MODERADO" -Recommendation "Auto-tuning deshabilitado - Limita throughput"
+        }
+    } catch {}
+    
+    if (-not $script:Environment.IsCorpNetwork) {
         try {
-            wmic pagefileset create name="C:\\pagefile.sys" InitialSize=$min MaximumSize=$max > $null 2>&1
-            Write-Host "  ✓ Pagefile ajustado a Min:${min}MB Max:${max}MB" -ForegroundColor Green
-            Log ("Pagefile personalizado: Min {0}MB Max {1}MB" -f $min, $max)
-        } catch {
-            Write-Host "  ⚠️ No se pudo ajustar pagefile con wmic; se deja administrado por sistema" -ForegroundColor Yellow
-            Log ("Error pagefile wmic: {0}" -f $_.ToString())
+            $gateway = (Get-NetRoute -DestinationPrefix "0.0.0.0/0" | Select-Object -First 1).NextHop
+            if ($gateway) {
+                $ping = Test-Connection $gateway -Count 5 -ErrorAction SilentlyContinue
+                if ($ping) {
+                    $avgLatency = ($ping | Measure-Object -Property ResponseTime -Average).Average
+                    $loss = (($ping | Where-Object {$_.Status -ne "Success"}).Count) * 20
+                    Add-Report -Category "RED" -Key "Latencia_Gateway" -Value "$([math]::Round($avgLatency,1)) ms"
+                    
+                    if ($avgLatency -gt 100) {
+                        Add-Report -Category "RED" -Key "Latencia_Gateway" -Value "$([math]::Round($avgLatency,1)) ms" -Status "LATENCIA_ALTA" -Severity "MODERADO" -Recommendation "Latencia alta a gateway"
+                    }
+                    
+                    Add-Report -Category "RED" -Key "Perdida_Gateway" -Value "$loss%"
+                    if ($loss -gt 5) {
+                        Add-Report -Category "RED" -Key "Perdida_Gateway" -Value "$loss%" -Status "PERDIDA_ALTA" -Severity "GRAVE" -Recommendation "Pérdida de paquetes - Revisar conexión"
+                    }
+                }
+            }
+        } catch {}
+    }
+}
+
+# [BLOQUE 07: SERVICIOS CON TRIGGER DETECTION] ===============================
+
+function Test-Services {
+    Write-Host "`n🔍 [07] Analizando servicios..." -ForegroundColor Cyan
+    
+    try {
+        $services = Get-WmiObject Win32_Service -ErrorAction Stop
+        
+        foreach ($svc in $services) {
+            if ($svc.Name -in $coreServices) {
+                Add-Report -Category "SERVICIOS" -Key "Service_$($svc.Name)" -Value "$($svc.DisplayName) - CORE" -Status "SERVICIO_CORE" -Severity "INFORMATIVO"
+                continue
+            }
+            
+            $exePath = Extract-ExecutablePath $svc.PathName
+            if ($exePath -and $svc.StartMode -eq "Auto") {
+                $fullPath = if ([System.IO.Path]::IsPathRooted($exePath)) {
+                    $exePath
+                } else {
+                    $found = Get-Command $exePath -ErrorAction SilentlyContinue
+                    if ($found) { $found.Source } else { $exePath }
+                }
+                
+                if (-not (Test-Path $fullPath -ErrorAction SilentlyContinue)) {
+                    Add-Report -Category "SERVICIOS" -Key "Broken_$($svc.Name)" -Value "$($svc.DisplayName) - Posible huérfano" -Status "HUERFANO_POTENCIAL" -Severity "MODERADO" -Recommendation "Verificar manualmente antes de deshabilitar"
+                }
+            }
+            
+            $triggers = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\$($svc.Name)\TriggerInfo" -ErrorAction SilentlyContinue
+            if ($svc.StartMode -eq "Auto" -and $svc.State -ne "Running" -and -not $triggers) {
+                Add-Report -Category "SERVICIOS" -Key "ServiceState_$($svc.Name)" -Value "$($svc.DisplayName) - Auto pero $($svc.State)" -Status "ESTADO_INCOHERENTE" -Severity "MODERADO" -Recommendation "Verificar dependencias"
+            }
         }
-    } else {
-        Write-Host "  • Pagefile: no modificado (modo informe o RAM suficiente)" -ForegroundColor DarkGray
-    }
-} catch {
-    Write-Host "  ⚠️ Error ajustando memoria virtual" -ForegroundColor Yellow
-    Log ("Error memoria virtual: {0}" -f $_.ToString())
+    } catch {}
 }
 
-Write-Host "`n[FASE 10] Verificación básica de Windows Update..." -ForegroundColor Yellow
-try {
-    $wuSvc = Get-Service -Name wuauserv -ErrorAction SilentlyContinue
-    if ($wuSvc -and $wuSvc.Status -ne "Running") {
-        if ($applyChanges) { Start-Service wuauserv -ErrorAction SilentlyContinue; Write-Host "  ✓ Windows Update activado" -ForegroundColor Green; Log "Windows Update activado" } else { Write-Host "  • Windows Update no modificado (modo informe)" -ForegroundColor DarkGray }
-    } else {
-        Write-Host "  • Windows Update ya activo" -ForegroundColor DarkGray
-    }
-} catch {
-    Write-Host "  ⚠️ No se pudo verificar Windows Update" -ForegroundColor Yellow
-    Log ("Error Windows Update: {0}" -f $_.ToString())
-}
+# [BLOQUE 08: TAREAS PROGRAMADAS] =============================================
 
-Write-Host "`n[FASE FINAL] Métricas después de optimización:" -ForegroundColor Yellow
-$after = Get-Metrics
-Log ("Métricas después: CPU {0}%, RAM libre {1} MB, Disco libre {2} GB, Latencia red {3} ms" -f $after.CPUUsage, $after.RAMFreeMB, $after.DiskFreeGB, $after.NetworkLatencyMs)
-Write-Host "  • CPU Uso: $($after.CPUUsage)%" -ForegroundColor DarkGray
-Write-Host "  • RAM Libre: $($after.RAMFreeMB) MB" -ForegroundColor DarkGray
-Write-Host "  • Disco Libre: $($after.DiskFreeGB) GB" -ForegroundColor DarkGray
-Write-Host "  • Latencia Red: $($after.NetworkLatencyMs) ms" -ForegroundColor DarkGray
-
-$deltaCPU = $after.CPUUsage - $before.CPUUsage
-$deltaRAM = $after.RAMFreeMB - $before.RAMFreeMB
-$deltaDisk = $after.DiskFreeGB - $before.DiskFreeGB
-$deltaPing = $after.NetworkLatencyMs - $before.NetworkLatencyMs
-
-$improvements = @()
-if ($applyChanges) {
-    $improvements += "Se movieron entradas de autostart sospechosas a backup (menos procesos al arranque)."
-    $improvements += "Se pusieron servicios no críticos en delayed start (menos carga al inicio sin deshabilitar servicios)."
-    $improvements += "Se ajustó prioridad de CPU y parámetros TCP (mejor respuesta en multitarea y conexiones compatibles)."
-    if ($esSSD) { $improvements += "TRIM habilitado y desfragmentación programada deshabilitada (mejor rendimiento y vida útil del SSD)." } else { $improvements += "Desfragmentación programada habilitada para HDD (mejor rendimiento en accesos secuenciales con el tiempo)." }
-    $improvements += "Ajustes de inicio/apagado: timeouts reducidos y Fast Startup condicional (arranque/apagado más rápidos según hardware)."
-    if ($totalRAMGB -lt 8 -and $totalRAMGB -gt 0) { $improvements += "Pagefile ajustado para compensar RAM limitada (mejor estabilidad en multitarea)." } else { $improvements += "Pagefile administrado por sistema (óptimo para sistemas con RAM suficiente)." }
-    $improvements += "Se limpiaron caché DNS y se aplicaron tweaks TCP globales."
-} else {
-    $improvements += "Modo informe: no se aplicaron cambios. Ejecutá el script y elegí 'S' en la pregunta para aplicar optimizaciones."
-}
-
-$summaryLines = @()
-$summaryLines += "═══════════════════════════════════════════════════════════════"
-$summaryLines += "Resumen Windows de Mente v1.0 - $timestamp"
-$summaryLines += "Hardware: $($cpu.Name) | RAM total: $totalRAMGB GB | Disco: $diskType"
-$summaryLines += "Categoria: $categoria (Score $puntos)"
-$summaryLines += "Métricas antes: CPU $($before.CPUUsage)%, RAM libre $($before.RAMFreeMB) MB, Disco libre $($before.DiskFreeGB) GB, Latencia $($before.NetworkLatencyMs) ms"
-$summaryLines += "Métricas después: CPU $($after.CPUUsage)%, RAM libre $($after.RAMFreeMB) MB, Disco libre $($after.DiskFreeGB) GB, Latencia $($after.NetworkLatencyMs) ms"
-$summaryLines += ("Deltas: CPU {0}% ; RAM {1} MB ; Disco {2} GB ; Latencia {3} ms" -f $deltaCPU, $deltaRAM, $deltaDisk, $deltaPing)
-$summaryLines += ""
-$summaryLines += "¿Por qué debería sentirse mejor tu equipo?"
-foreach ($imp in $improvements) { $summaryLines += "  • $imp" }
-$summaryLines += ""
-$summaryLines += "Log temporal: $logFileTemp"
-$summaryLines += "═══════════════════════════════════════════════════════════════"
-
-Add-Content -Path $logFileTemp -Value ($summaryLines -join "`r`n")
-Log "Resumen agregado al log temporal"
-
-# Intentar copiar log al Escritorio del usuario o al Escritorio público; si falla, mantener en TEMP
-$logName = "WindowsDeMente_Log_$timestamp.txt"
-$userDesktop = $null
-try { $userDesktop = [Environment]::GetFolderPath("Desktop") } catch {}
-$publicDesktop = $null
-try { $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory") } catch {}
-
-$wrote = $false
-if ($logToDesktop -and $userDesktop) {
-    $finalUserLog = Join-Path $userDesktop $logName
+function Test-ScheduledTasks {
+    Write-Host "`n🔍 [08] Analizando tareas programadas..." -ForegroundColor Cyan
+    
+    $systemPaths = @("\Microsoft\Windows", "\Microsoft\Windows\Update", "\Microsoft\Windows\Maintenance")
+    
     try {
-        Copy-Item -Path $logFileTemp -Destination $finalUserLog -Force
-        foreach ($line in $summaryLines) { Write-Host $line }
-        Write-Host ""
-        Write-Host "Optimización completada - Log guardado en el Escritorio:" -ForegroundColor Green
-        Write-Host " $finalUserLog" -ForegroundColor White
-        Log ("Log final copiado a Escritorio de usuario: {0}" -f $finalUserLog)
-        $wrote = $true
-    } catch {
-        Log ("No se pudo copiar log al Escritorio de usuario: {0}" -f $_.ToString())
+        $allTasks = Get-ScheduledTask -ErrorAction SilentlyContinue
+        
+        foreach ($task in $allTasks) {
+            $isSystemTask = $false
+            foreach ($path in $systemPaths) {
+                if ($task.TaskPath -like "$path*") { $isSystemTask = $true; break }
+            }
+            
+            if (-not $isSystemTask) {
+                foreach ($action in $task.Actions) {
+                    if ($action.Execute) {
+                        $exePath = Extract-ExecutablePath $action.Execute
+                        if ($exePath) {
+                            $fullPath = if ([System.IO.Path]::IsPathRooted($exePath)) {
+                                $exePath
+                            } else {
+                                $found = Get-Command $exePath -ErrorAction SilentlyContinue
+                                if ($found) { $found.Source } else { $exePath }
+                            }
+                            
+                            if (-not (Test-Path $fullPath -ErrorAction SilentlyContinue)) {
+                                Add-Report -Category "TAREAS" -Key "Orphan_$($task.TaskName)" -Value "Ejecutable no encontrado" -Status "HUERFANO_POTENCIAL" -Severity "MODERADO" -Recommendation "Verificar si el software asociado está instalado"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } catch {}
+}
+
+# [BLOQUE 09: RESTOS DE SOFTWARE] =============================================
+
+function Test-SoftwareRemnants {
+    Write-Host "`n🔍 [09] Analizando restos de software..." -ForegroundColor Cyan
+    
+    $runPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run",
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+    )
+    
+    foreach ($path in $runPaths) {
+        try {
+            $items = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
+            if ($items) {
+                $items.PSObject.Properties | Where-Object { $_.MemberType -eq "NoteProperty" } | ForEach-Object {
+                    $exePath = Extract-ExecutablePath $_.Value
+                    if ($exePath) {
+                        $fullPath = if ([System.IO.Path]::IsPathRooted($exePath)) {
+                            $exePath
+                        } else {
+                            $found = Get-Command $exePath -ErrorAction SilentlyContinue
+                            if ($found) { $found.Source } else { $exePath }
+                        }
+                        
+                        if (-not (Test-Path $fullPath -ErrorAction SilentlyContinue)) {
+                            Add-Report -Category "RESTOS" -Key "Run_$($_.Name)" -Value "Entrada huérfana" -Status "HUERFANO_POTENCIAL" -Severity "MODERADO" -Recommendation "Eliminar entrada manualmente si el software ya no existe"
+                        }
+                    }
+                }
+            }
+        } catch {}
     }
 }
 
-if (-not $wrote -and $logToDesktop -and $publicDesktop) {
-    $finalPublicLog = Join-Path $publicDesktop $logName
+# [BLOQUE 10: BOOT] ===========================================================
+
+function Test-Boot {
+    Write-Host "`n🔍 [10] Analizando configuración de boot..." -ForegroundColor Cyan
+    
     try {
-        Copy-Item -Path $logFileTemp -Destination $finalPublicLog -Force
-        foreach ($line in $summaryLines) { Write-Host $line }
-        Write-Host ""
-        Write-Host "Optimización completada - Log guardado en el Escritorio público:" -ForegroundColor Green
-        Write-Host " $finalPublicLog" -ForegroundColor White
-        Log ("Log final copiado a Escritorio público: {0}" -f $finalPublicLog)
-        $wrote = $true
-    } catch {
-        Log ("No se pudo copiar log al Escritorio público: {0}" -f $_.ToString())
+        $fastStart = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -ErrorAction SilentlyContinue).HiberbootEnabled
+        $hasSSD = Get-PhysicalDisk -ErrorAction SilentlyContinue | Where-Object MediaType -eq 3
+        $isLaptop = (Get-CimInstance Win32_SystemEnclosure).ChassisTypes -match "8|9|10|11|12|14|18|21|30|31|32"
+        
+        Add-Report -Category "BOOT" -Key "FastStartup" -Value $(if ($fastStart -eq 1) { "Habilitado" } else { "Deshabilitado" })
+        
+        if ($fastStart -eq 1 -and $hasSSD -and -not $isLaptop) {
+            Add-Report -Category "BOOT" -Key "FastStartup" -Value "Habilitado en SSD Desktop" -Status "INFORMATIVO" -Recommendation "En desktop con SSD, fast startup no es necesario pero tampoco daña. Decisión personal."
+        }
+    } catch {}
+    
+    try {
+        $timeout = bcdedit /enum 2>$null | Select-String "timeout"
+        if ($timeout -match "(\d+)") {
+            $bootTimeout = [int]$matches[1]
+            Add-Report -Category "BOOT" -Key "Timeout" -Value "$bootTimeout seg"
+            
+            if ($bootTimeout -gt 30) {
+                Add-Report -Category "BOOT" -Key "Timeout" -Value "$bootTimeout seg" -Status "TIMEOUT_ALTO" -Severity "MODERADO" -Recommendation "Reducir timeout a 10-15 segundos"
+            }
+        }
+    } catch {}
+}
+
+# [BLOQUE 11: DRIVERS] ========================================================
+
+function Test-Drivers {
+    Write-Host "`n🔍 [11] Analizando drivers..." -ForegroundColor Cyan
+    
+    try {
+        $drivers = Get-WmiObject Win32_SystemDriver | Where-Object { $_.State -eq "Running" }
+        foreach ($drv in $drivers) {
+            $signStatus = Test-DriverSigning -DriverName $drv.Name -DriverPath $drv.PathName
+            if ($signStatus -eq "No firmado") {
+                Add-Report -Category "DRIVERS" -Key "NoFirmado_$($drv.Name)" -Value "$($drv.DisplayName)" -Status "DRIVER_NO_FIRMADO" -Severity "MODERADO" -Recommendation "Driver sin firma digital - Considerar actualizar"
+            }
+        }
+    } catch {}
+    
+    try {
+        $legacy = Get-WmiObject Win32_SystemDriver | Where-Object { $_.Description -match "legacy|legado" }
+        foreach ($drv in $legacy) {
+            Add-Report -Category "DRIVERS" -Key "Legacy_$($drv.Name)" -Value "$($drv.DisplayName)" -Status "DRIVER_LEGACY" -Severity "INFORMATIVO" -Recommendation "Driver en modo legado - Buscar versión moderna si es necesario"
+        }
+    } catch {}
+}
+
+# [BLOQUE 12: WINDOWS CONFIG] =================================================
+
+function Test-WindowsConfig {
+    Write-Host "`n🔍 [12] Analizando configuración de Windows..." -ForegroundColor Cyan
+    
+    try {
+        $telemetry = Get-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name AllowTelemetry -ErrorAction SilentlyContinue
+        $telemetryLevel = if ($telemetry) { $telemetry.AllowTelemetry } else { 3 }
+        Add-Report -Category "CONFIG" -Key "Telemetria" -Value "Nivel $telemetryLevel"
+        
+        if ($telemetryLevel -gt 1) {
+            Add-Report -Category "CONFIG" -Key "Telemetria" -Value "Nivel $telemetryLevel" -Status "TELEMETRIA_ALTA" -Severity "INFORMATIVO" -Recommendation "Valor por defecto de Windows. Reducir si preocupa privacidad."
+        }
+    } catch {}
+    
+    $defender = Get-DefenderImpact
+    if ($defender) {
+        Add-Report -Category "CONFIG" -Key "Defender" -Value "CPU: $($defender.CPU)% | RAM: $($defender.RAM) MB"
+        if ($defender.CPU -gt 20) {
+            Add-Report -Category "CONFIG" -Key "Defender" -Value "CPU $($defender.CPU)%" -Status "DEFENDER_ACTIVO" -Severity "INFORMATIVO" -Recommendation "Defender escaneando - Programar scan en horario inactivo"
+        }
     }
+    
+    try {
+        $search = Get-Process SearchIndexer -ErrorAction SilentlyContinue
+        if ($search) {
+            $cpuSearch = [math]::Round($search.CPU, 1)
+            $memSearch = [math]::Round($search.WorkingSet / 1MB, 1)
+            Add-Report -Category "CONFIG" -Key "Indexador" -Value "CPU: $cpuSearch% | RAM: $memSearch MB"
+            
+            if ($cpuSearch -gt 10) {
+                Add-Report -Category "CONFIG" -Key "Indexador" -Value "CPU $cpuSearch%" -Status "INDEXADOR_ACTIVO" -Severity "INFORMATIVO" -Recommendation "Indexador reconstruyendo índice - Normal tras actualizaciones"
+            }
+        }
+    } catch {}
 }
 
-if (-not $wrote) {
-    foreach ($line in $summaryLines) { Write-Host $line }
-    Write-Host ""
-    Write-Host "Optimización completada - Resumen final mostrado arriba." -ForegroundColor Green
-    Write-Host "Log temporal: $logFileTemp" -ForegroundColor DarkGray
-    Log "Resumen mostrado en consola; log mantenido en temporal"
+# [BLOQUE 13: RUNTIME AVANZADO] ===============================================
+
+function Test-RuntimeAdvanced {
+    Write-Host "`n🔍 [13] Analizando runtime avanzado..." -ForegroundColor Cyan
+    
+    $samples = 3
+    $sampleInterval = 1
+    
+    $cpuSamples = @()
+    for ($i = 1; $i -le $samples; $i++) {
+        $cpu = Get-Counter '\Processor(_total)\% Processor Time' -ErrorAction SilentlyContinue
+        if ($cpu) { $cpuSamples += [math]::Round($cpu.CounterSamples.CookedValue, 1) }
+        if ($i -lt $samples) { Start-Sleep -Seconds $sampleInterval }
+    }
+    $avgCPU = if ($cpuSamples) { ($cpuSamples | Measure-Object -Average).Average } else { 0 }
+    Add-Report -Category "RUNTIME" -Key "CPU_Actual" -Value "$([math]::Round($avgCPU,1))%"
+    
+    if ($avgCPU -gt 80) {
+        Add-Report -Category "RUNTIME" -Key "CPU_Actual" -Value "$([math]::Round($avgCPU,1))%" -Status "CPU_ALTO" -Severity "GRAVE" -Recommendation "CPU consistentemente alto - Revisar procesos"
+    }
+    
+    try {
+        $highCPU = Get-Process | Where-Object { $_.CPU -gt 20 } | Select-Object -ExpandProperty ProcessName -Unique
+        if ($highCPU) {
+            Add-Report -Category "RUNTIME" -Key "Procesos_CPU" -Value "$($highCPU -join ', ')" -Status "PROCESOS_ALTOS" -Severity "MODERADO" -Recommendation "Revisar procesos con alto CPU"
+        }
+    } catch {}
+    
+    try {
+        $highRAM = Get-Process | Where-Object { $_.WorkingSet -gt 500MB } | Select-Object -ExpandProperty ProcessName -Unique
+        if ($highRAM) {
+            Add-Report -Category "RUNTIME" -Key "Procesos_RAM" -Value "$($highRAM -join ', ')" -Status "PROCESOS_ALTOS" -Severity "MODERADO" -Recommendation "Revisar procesos con alto consumo RAM"
+        }
+    } catch {}
 }
 
-# Guardar marcador para medir boot si se reinicia
-$bootMarker = Join-Path $tempLogDir "WDM_boot_marker_$timestamp.txt"
-try { Set-Content -Path $bootMarker -Value (Get-Date).ToString("o") -Encoding UTF8 } catch {}
+# [FASE 1 - GENERAR FIXES] ====================================================
 
-# Preguntar reinicio solo si se aplicaron cambios
-if ($applyChanges) {
-    $resp = Read-Host "`nReiniciar ahora para aplicar todos los cambios? (S/N) [Por defecto: N]"
-    if ($resp -eq "S" -or $resp -eq "s") {
-        Write-Host "`nReiniciando en 10 segundos... (Ctrl+C para cancelar)" -ForegroundColor Yellow
-        for ($i = 10; $i -gt 0; $i--) { Write-Host "  $i..." -ForegroundColor Gray; Start-Sleep -Seconds 1 }
-        Restart-Computer -Force
+function Generate-Fixes {
+    Write-Host "`n🔧 [FASE 1] Generando fixes basados en diagnóstico..." -ForegroundColor Cyan
+    
+    foreach ($issue in $script:Issues) {
+        switch ($issue.Key) {
+            "NTFS" { 
+                if ($issue.CurrentValue -match "sucio") {
+                    Add-Fix -Category $issue.Category -Key $issue.Key -Fix "chkdsk /f C:" -Value $issue.CurrentValue
+                }
+            }
+            "TRIM_*" { 
+                if ($issue.Status -eq "TRIM_DESACTIVADO") {
+                    Add-Fix -Category $issue.Category -Key $issue.Key -Fix "fsutil behavior set DisableDeleteNotify 0" -Value $issue.CurrentValue
+                }
+            }
+            "Nagle_*" { 
+                if ($issue.Status -eq "NAGLE_ACTIVO") {
+                    $ifGuid = $issue.Key -replace "Nagle_", ""
+                    $ifPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\$ifGuid"
+                    Add-Fix -Category $issue.Category -Key $issue.Key -Fix "Set-ItemProperty -Path '$ifPath' -Name TCPNoDelay -Value 1" -Value $issue.CurrentValue
+                }
+            }
+            "AckFreq_*" { 
+                if ($issue.Status -eq "ACK_FRECUENTE") {
+                    $ifGuid = $issue.Key -replace "AckFreq_", ""
+                    $ifPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\$ifGuid"
+                    Add-Fix -Category $issue.Category -Key $issue.Key -Fix "Set-ItemProperty -Path '$ifPath' -Name TcpAckFrequency -Value 2" -Value $issue.CurrentValue
+                }
+            }
+            "AutoTuning" { 
+                if ($issue.Status -eq "AUTOTUNING_OFF") {
+                    Add-Fix -Category $issue.Category -Key $issue.Key -Fix "netsh int tcp set global autotuninglevel=normal" -Value $issue.CurrentValue
+                }
+            }
+            "Timeout" { 
+                if ($issue.Status -eq "TIMEOUT_ALTO") {
+                    Add-Fix -Category $issue.Category -Key $issue.Key -Fix "bcdedit /timeout 10" -Value $issue.CurrentValue
+                }
+            }
+        }
+    }
+    
+    Write-Host "  ✅ Generados $($script:Fixes.Count) fixes" -ForegroundColor Green
+}
+
+# [RESUMEN EJECUTIVO] =========================================================
+
+function Show-ExecutiveSummary {
+    Write-Host "`n" + "="*80 -ForegroundColor Cyan
+    Write-Host "║                 WINDOWS DE MENTE v1.0 - DIAGNÓSTICO COMPLETO                ║" -ForegroundColor White -BackgroundColor DarkBlue
+    Write-Host "="*80 -ForegroundColor Cyan
+    
+    $critical = $script:Issues | Where-Object { $_.Severity -eq "CRITICO" }
+    $grave = $script:Issues | Where-Object { $_.Severity -eq "GRAVE" }
+    $moderate = $script:Issues | Where-Object { $_.Severity -eq "MODERADO" }
+    $info = $script:Report | Where-Object { $_.Status -in @("LIMITACION_FISICA", "ENTORNO_RED", "SERVICIO_CORE", "INFORMATIVO") }
+    
+    Write-Host "`n📋 RESUMEN EJECUTIVO - PROBLEMAS DETECTADOS:" -ForegroundColor Yellow
+    Write-Host "-"*60
+    
+    if ($critical) {
+        Write-Host "`n🔴 CRÍTICOS (deben corregirse antes de continuar):" -ForegroundColor Red
+        foreach ($i in $critical) {
+            Write-Host "  ❌ $($i.Category) - $($i.Key)" -ForegroundColor Red
+            Write-Host "     → $($i.Suggestion)" -ForegroundColor White
+        }
+    }
+    
+    if ($grave) {
+        Write-Host "`n🟠 GRAVES (afectan rendimiento significativamente):" -ForegroundColor DarkYellow
+        foreach ($i in $grave) {
+            Write-Host "  ⚠️  $($i.Category) - $($i.Key)" -ForegroundColor DarkYellow
+            Write-Host "     → $($i.Suggestion)" -ForegroundColor White
+        }
+    }
+    
+    if ($moderate) {
+        Write-Host "`n🟡 MODERADOS (optimizables):" -ForegroundColor Yellow
+        foreach ($i in $moderate) {
+            Write-Host "  ⚡ $($i.Category) - $($i.Key)" -ForegroundColor Yellow
+            Write-Host "     → $($i.Suggestion)" -ForegroundColor White
+        }
+    }
+    
+    if ($info) {
+        Write-Host "`n🔵 INFORMATIVOS (limitaciones/entorno):" -ForegroundColor Blue
+        foreach ($i in $info) {
+            Write-Host "  ℹ️  $($i.Category) - $($i.Key): $($i.Value)" -ForegroundColor Blue
+        }
+    }
+    
+    Write-Host "`n" + "="*60
+    Write-Host "📊 ESTADÍSTICAS:" -ForegroundColor Cyan
+    Write-Host "  🔴 Críticos: $($critical.Count)" -ForegroundColor Red
+    Write-Host "  🟠 Graves: $($grave.Count)" -ForegroundColor DarkYellow
+    Write-Host "  🟡 Moderados: $($moderate.Count)" -ForegroundColor Yellow
+    Write-Host "  🔵 Informativos: $($info.Count)" -ForegroundColor Blue
+    Write-Host "  ✅ Total checks: $($script:Report.Count)" -ForegroundColor Green
+}
+
+# [FASE 2 - OPTIMIZACIÓN] =====================================================
+
+function Start-Optimization {
+    Write-Host "`n" + "="*80 -ForegroundColor Cyan
+    Write-Host "║                 FASE 2: OPTIMIZACIÓN AUTOMÁTICA                            ║" -ForegroundColor White -BackgroundColor DarkGreen
+    Write-Host "="*80 -ForegroundColor Cyan
+    
+    if ($script:Fixes.Count -eq 0) {
+        Write-Host "`n✅ No hay optimizaciones pendientes." -ForegroundColor Green
+        return $false
+    }
+    
+    $restorePoint = New-RestorePoint
+    
+    Write-Host "`n📋 SE APLICARÁN LAS SIGUIENTES OPTIMIZACIONES:" -ForegroundColor Yellow
+    Write-Host "-"*60
+    
+    foreach ($fix in $script:Fixes) {
+        $issue = $script:Issues | Where-Object { $_.Key -eq $fix.Key } | Select-Object -First 1
+        $icon = if ($issue) { $issue.Icon } else { "⚙️" }
+        Write-Host "  $icon $($fix.Category) - $($fix.Key)" -ForegroundColor White
+        Write-Host "     Comando: $($fix.Fix)" -ForegroundColor Gray
+    }
+    
+    Write-Host "`n"
+    $confirm = Read-Host "¿Aplicar estas optimizaciones? (S/N)"
+    
+    if ($confirm -ne "S" -and $confirm -ne "s") {
+        Write-Host "`n⏸️  Optimización cancelada por el usuario." -ForegroundColor Yellow
+        return $false
+    }
+    
+    Write-Host "`n⚙️  Aplicando optimizaciones..." -ForegroundColor Cyan
+    
+    $successCount = 0
+    $failCount = 0
+    
+    foreach ($fix in $script:Fixes) {
+        try {
+            Write-Host "  → Aplicando: $($fix.Fix)" -ForegroundColor Gray
+            Invoke-Expression $fix.Fix | Out-Null
+            $fix.Status = "EXITOSO"
+            $successCount++
+        }
+        catch {
+            Write-Host "     ❌ Error: $($_.Exception.Message)" -ForegroundColor Red
+            $fix.Status = "FALLIDO"
+            $failCount++
+        }
+    }
+    
+    Write-Host "`n📊 RESULTADO OPTIMIZACIÓN:" -ForegroundColor Cyan
+    Write-Host "  ✅ Exitosas: $successCount" -ForegroundColor Green
+    Write-Host "  ❌ Fallidas: $failCount" -ForegroundColor $(if ($failCount -gt 0) { "Red" } else { "Green" })
+    
+    return $true
+}
+
+# [CONFIRMACIÓN REINICIO] =====================================================
+
+function Confirm-Reboot {
+    Write-Host "`n" + "="*80 -ForegroundColor Cyan
+    Write-Host "║                 OPTIMIZACIÓN COMPLETADA                                     ║" -ForegroundColor White -BackgroundColor DarkBlue
+    Write-Host "="*80 -ForegroundColor Cyan
+    
+    Write-Host "`n⏱️  Tiempo total de ejecución: $([math]::Round(((Get-Date) - $script:StartTime).TotalMinutes, 1)) minutos" -ForegroundColor Yellow
+    
+    $pendingFixes = $script:Fixes | Where-Object { $_.Status -eq "PENDIENTE" }
+    if ($pendingFixes) {
+        Write-Host "`n⚠️  Quedaron $($pendingFixes.Count) optimizaciones sin aplicar." -ForegroundColor Yellow
+    }
+    
+    Write-Host "`n🔄 Algunos cambios requieren reinicio para aplicarse completamente." -ForegroundColor Cyan
+    $reboot = Read-Host "`n¿Reiniciar ahora? (S/N)"
+    
+    if ($reboot -eq "S" -or $reboot -eq "s") {
+        Write-Host "`n🔄 Reiniciando en 10 segundos..." -ForegroundColor Green
+        shutdown /r /t 10 /c "Windows de Mente v1.0 - Reinicio para aplicar optimizaciones"
     } else {
-        Write-Host "`nReinicia manualmente cuando puedas. Los cambios estarán activos tras reinicio." -ForegroundColor Cyan
+        Write-Host "`n✅ Proceso completado. Reinicie manualmente para aplicar todos los cambios." -ForegroundColor Green
     }
-} else {
-    Write-Host "`nNo se aplicaron cambios. Ejecutá el script y elegí 'S' para aplicar optimizaciones." -ForegroundColor Cyan
 }
 
-Log "Fin de ejecución"
+# [MAIN] ======================================================================
+
+Clear-Host
+Write-Host @"
+
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║     WINDOWS DE MENTE v1.0 - DIAGNÓSTICO + OPTIMIZACIÓN      ║
+║                                                              ║
+║     • FASE 0: Diagnóstico completo (15-20 min)              ║
+║     • FASE 1: Generación de fixes                           ║
+║     • FASE 2: Optimización con punto de restauración        ║
+║     • Reinicio opcional                                      ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+"@ -ForegroundColor Cyan
+
+Write-Host "⏱️  El diagnóstico tomará 15-20 minutos..." -ForegroundColor Yellow
 Write-Host ""
-'@
 
-$path = Join-Path $env:TEMP "WindowsDeMente_v1.0.ps1"
-Set-Content -Path $path -Value $script -Encoding UTF8
-Write-Host "Se creó el archivo temporal: $path"
-Write-Host "Ejecutando el script desde el archivo temporal..."
-& $path
+# Ejecutar todos los bloques de diagnóstico
+$blocks = @(
+    "Test-Environment",
+    "Test-HardwareBase",
+    "Test-CriticalErrors",
+    "Test-CPUAdvanced",
+    "Test-MemoryAdvanced",
+    "Test-DiskAdvanced",
+    "Test-NetworkAdvanced",
+    "Test-Services",
+    "Test-ScheduledTasks",
+    "Test-SoftwareRemnants",
+    "Test-Boot",
+    "Test-Drivers",
+    "Test-WindowsConfig",
+    "Test-RuntimeAdvanced"
+)
+
+$blockNumber = 1
+foreach ($block in $blocks) {
+    try {
+        & $block
+    }
+    catch {
+        Write-Host "  ⚠️  Error en bloque $blockNumber : $($_.Exception.Message)" -ForegroundColor Red
+        Add-Report -Category "ERROR" -Key $block -Value "Falló ejecución" -Status "ERROR" -Severity "INFORMATIVO"
+    }
+    $blockNumber++
+}
+
+# Exportar reporte de diagnóstico
+$timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+$reportPath = "$PSScriptRoot\WindowsDeMente_Diagnostico_$timestamp.csv"
+$script:Report | Export-Csv -Path $reportPath -NoTypeInformation -Encoding UTF8
+
+# Mostrar resumen
+Show-ExecutiveSummary
+
+# Preguntar si continuar
+Write-Host "`n"
+$continue = Read-Host "¿Continuar con FASE 1 y FASE 2 - Optimización? (S/N)"
+
+if ($continue -eq "S" -or $continue -eq "s") {
+    # FASE 1: Generar fixes
+    Generate-Fixes
+    
+    # FASE 2: Aplicar optimizaciones
+    $optimized = Start-Optimization
+    
+    # Exportar fixes aplicados
+    $fixesPath = "$PSScriptRoot\WindowsDeMente_Fixes_$timestamp.csv"
+    $script:Fixes | Export-Csv -Path $fixesPath -NoTypeInformation -Encoding UTF8
+    
+    if ($optimized) {
+        Confirm-Reboot
+    }
+} else {
+    Write-Host "`n⏸️  Proceso detenido por el usuario." -ForegroundColor Yellow
+}
+
+Write-Host "`n📁 Reportes guardados en: $PSScriptRoot" -ForegroundColor Cyan
+Write-Host "`n✅ Windows de Mente v1.0 completado!" -ForegroundColor Green
+Write-Host "Presiona cualquier tecla para salir..."
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
