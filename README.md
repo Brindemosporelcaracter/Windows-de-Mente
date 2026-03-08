@@ -69,28 +69,14 @@ Análisis completo de tu conexión: perfil de red, DNS activo, proxy, velocidad 
 
 ## 🚀 Instalación y Uso
 
-### Opción A — Ejecutable (recomendado)
-1. Descargá `WindowsDeMente.exe` desde [Releases](../../releases)
-2. Doble clic → aceptá el UAC → listo
-
-### Opción B — Script directo
+### Opción A— Script directo
 1. Descargá `WDM-V2.0.ps1`
 2. Clic derecho → *Ejecutar con PowerShell* → aceptá UAC
 
-### Opción C — Compilar vos mismo
-1. Colocá `WDM-V2.0.ps1` y `COMPILAR-A-EXE.ps1` en la misma carpeta
-2. Clic derecho en `COMPILAR-A-EXE.ps1` → *Ejecutar con PowerShell*
-3. Esperar ~60 segundos → se genera `WindowsDeMente.exe`
+### Opción B — Copiar y Pegar
+1. copia y pega todo el codigo dentro de una ventana de PS como administrador
 
-> ⚠️ Algunos antivirus marcan el .exe como sospechoso (falso positivo conocido de PS2EXE). Es esperable — el código fuente está acá para verificarlo.
-
----
-
-## 📸 Capturas
-
-*(próximamente)*
-
----
+--
 
 ## 🤔 Preguntas frecuentes
 
